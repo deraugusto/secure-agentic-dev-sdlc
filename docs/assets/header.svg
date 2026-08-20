@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" role="img" aria-label="agentic-sdlc-baseline: six layers, each one able to refuse">
+  <rect width="1200" height="380" fill="#0d1117"/>
+  <rect x="0" y="0" width="1200" height="3" fill="#3fb950"/>
+
+  <text x="72" y="72" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="30" font-weight="700" fill="#e6edf3">agentic-sdlc-baseline</text>
+  <text x="72" y="104" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#8b949e">a complete, self-hosted lifecycle for code written by an agent</text>
+
+  <line x1="72" y1="132" x2="1128" y2="132" stroke="#21262d" stroke-width="1"/>
+
+  <text x="72" y="176" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#6e7681">untrusted input</text>
+  <text x="1128" y="176" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#6e7681">running service</text>
+
+  <line x1="72" y1="222" x2="1128" y2="222" stroke="#30363d" stroke-width="2"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <g>
+      <rect x="72" y="196" width="152" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="148" y="218" text-anchor="middle" font-size="15" font-weight="700" fill="#3fb950">L0</text>
+      <text x="148" y="236" text-anchor="middle" font-size="11" fill="#8b949e">governance</text>
+    </g>
+    <g>
+      <rect x="252" y="196" width="152" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="328" y="218" text-anchor="middle" font-size="15" font-weight="700" fill="#3fb950">L1</text>
+      <text x="328" y="236" text-anchor="middle" font-size="11" fill="#8b949e">sanitize</text>
+    </g>
+    <g>
+      <rect x="432" y="196" width="152" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="508" y="218" text-anchor="middle" font-size="15" font-weight="700" fill="#3fb950">L2</text>
+      <text x="508" y="236" text-anchor="middle" font-size="11" fill="#8b949e">output gate</text>
+    </g>
+    <g>
+      <rect x="612" y="196" width="152" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="688" y="218" text-anchor="middle" font-size="15" font-weight="700" fill="#3fb950">L3</text>
+      <text x="688" y="236" text-anchor="middle" font-size="11" fill="#8b949e">review</text>
+    </g>
+    <g>
+      <rect x="792" y="196" width="152" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="868" y="218" text-anchor="middle" font-size="15" font-weight="700" fill="#3fb950">L4</text>
+      <text x="868" y="236" text-anchor="middle" font-size="11" fill="#8b949e">enforce</text>
+    </g>
+    <g>
+      <rect x="972" y="196" width="152" height="52" rx="6" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+      <text x="1048" y="218" text-anchor="middle" font-size="15" font-weight="700" fill="#3fb950">L5</text>
+      <text x="1048" y="236" text-anchor="middle" font-size="11" fill="#8b949e">deploy + audit</text>
+    </g>
+  </g>
+
+  <g stroke="#f85149" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.85">
+    <line x1="148" y1="248" x2="148" y2="284"/>
+    <line x1="328" y1="248" x2="328" y2="284"/>
+    <line x1="508" y1="248" x2="508" y2="284"/>
+    <line x1="688" y1="248" x2="688" y2="284"/>
+    <line x1="868" y1="248" x2="868" y2="284"/>
+    <line x1="1048" y1="248" x2="1048" y2="284"/>
+  </g>
+  <g fill="#f85149" opacity="0.85">
+    <circle cx="148" cy="288" r="3"/>
+    <circle cx="328" cy="288" r="3"/>
+    <circle cx="508" cy="288" r="3"/>
+    <circle cx="688" cy="288" r="3"/>
+    <circle cx="868" cy="288" r="3"/>
+    <circle cx="1048" cy="288" r="3"/>
+  </g>
+
+  <text x="600" y="318" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#8b949e">every layer can refuse, independently — and ships the probe that proves it</text>
+
+  <text x="72" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6e7681">87 probes · stdlib only · no dependencies</text>
+  <text x="1128" y="352" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6e7681">Apache-2.0</text>
+</svg>
