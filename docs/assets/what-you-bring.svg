@@ -20,7 +20,7 @@
     <line x1="84" y1="348" x2="556" y2="348" stroke="#21262d" stroke-width="1"/>
 
     <text x="84" y="378" font-size="12" fill="#e6edf3">bootstrap questionnaire · 3 profiles · dry-run</text>
-    <text x="84" y="406" font-size="12" fill="#e6edf3">87 probes, most of them asserting a refusal</text>
+    <text x="84" y="406" font-size="12" fill="#e6edf3">99 probes, most of them asserting a refusal</text>
     <text x="84" y="434" font-size="12" fill="#e6edf3">hello-world service, driven end to end as proof</text>
     <text x="84" y="462" font-size="12" fill="#e6edf3">leak sweep, run before every handover</text>
 

@@ -158,7 +158,7 @@ happened.
 
 Fair question, and the honest answer has two halves.
 
-**What is demonstrated.** Run `./tools/run-probes.sh` and you get 87 cases across
+**What is demonstrated.** Run `./tools/run-probes.sh` and you get 99 cases across
 all six layers plus the bootstrap. Most of them assert a *refusal*, which is the
 half that matters: a collapsed separation, a token spent on the wrong commit, an
 edited reviewer prompt, a push deleting decision records, a rewritten ledger
@@ -168,13 +168,22 @@ snapshot, deploy, smoke — and then through the failure path, where the smoke t
 fails on purpose, the rollback restores the snapshot, and both events land in a
 hash chain that `ledger.py verify` rejects if anyone edits it afterwards.
 
+The reviewer's HTTP path is exercised too, against a protocol-accurate endpoint
+that can be told to misbehave: both wire protocols, plus a 500, a 401, a
+timeout, malformed JSON, prose wrapped around the answer, and a review that
+covers four of the seven disciplines. Every one of those produces a refusal, and
+an unusable review produces a NO-GO with no token — which matters more than the
+happy path, because otherwise the easiest way past the gate would be a model
+having a bad day.
+
 **What is not.** The probes were written alongside the code they test, so they
 prove internal consistency, not correctness against an adversary who did not
-write them. Beyond that, three things are shipped but unproven in the field:
+write them. Beyond that, three things remain unproven in the field:
 
-- **The reviewer's model backends.** `ollama` and `openai-compat` are
-  implemented, but every run so far used `provider: offline`. The gate mechanics
-  are exercised; the HTTP path to a real model is not.
+- **A real model.** The wire protocols are verified, the request envelope is
+  verified, and every failure mode is verified. What no test can tell you is
+  whether an actual model, on an actual changeset, produces a review worth
+  reading. That is a property of the model you choose, not of this code.
 - **The pre-receive hook against a live forge.** Its 14 probes run against
   throwaway bare repositories. Installing it on a running git server is a step
   nobody has taken here yet.
@@ -249,13 +258,13 @@ Proves the machinery on a real service, end to end, with no dependencies beyond
 Node.js for the example itself:
 
 ```sh
-./tools/run-probes.sh                                      # 87 cases, all layers
+./tools/run-probes.sh                                      # 99 cases, all layers
 ./layers/l5-deploy-audit/deploy.sh --target hello-world --local
 SDLC_BREAK_SMOKE=1 ./layers/l5-deploy-audit/deploy.sh --target hello-world --local
 python3 layers/l5-deploy-audit/ledger.py verify
 ```
 
-`run-probes.sh` runs every layer's suite — 87 cases, and most of them assert a
+`run-probes.sh` runs every layer's suite — 99 cases, and most of them assert a
 **refusal**: a collapsed separation, a token spent on the wrong commit, an
 edited reviewer prompt, a push that deletes decision records, a rewritten
 ledger entry. Run one suite alone with `./tools/run-probes.sh l2`.
@@ -264,8 +273,9 @@ ledger entry. Run one suite alone with `./tools/run-probes.sh l2`.
 |---|---|---|
 | L0 | 9 | index drift, id mismatch, the amendment coupling |
 | L1 | 11 | bidi, zero-width, homoglyphs, an audited bypass, fail-closed patterns |
-| L2 | 12 | no token, stale token, edited seal, expired TTL, edited manifest, unreachable reviewer |
+| L2 | 14 | no token, stale token, edited seal, expired TTL, edited manifest, a reviewer that is unreachable *and* one that answers with garbage |
 | L3 | 10 | edited apparatus, missing seal, the reviewer/author family check |
+| L3 backends | 10 | the real HTTP path: both protocols, plus 500, 401, timeout, malformed JSON, half a review |
 | L4 | 14 | mass delete, protected paths and refs, a broken hook failing closed |
 | L5 | 7 | edited, removed and re-hashed ledger entries; an undeclared target |
 | bootstrap | 24 | every collapsed separation, refusal to guess, dry-run purity, idempotence |

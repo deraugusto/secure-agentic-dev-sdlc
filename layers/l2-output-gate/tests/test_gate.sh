@@ -240,6 +240,52 @@ else
   report FAIL expired-token-blocks-push "an old token was still spendable"
 fi
 
+printf '\n── a reviewer that answers, but with garbage ──\n\n'
+
+# Distinct from "unreachable": here S4 gets a reply, and the reply is unusable.
+# A model returning half a review, or prose where JSON was required, must be a
+# refusal too -- otherwise the easiest way past the gate is a model having a
+# bad day.
+stop_reviewer
+MOCK_PORT="$(python3 -c "
+import socket
+s = socket.socket(); s.bind(('127.0.0.1', 0))
+print(s.getsockname()[1]); s.close()")"
+python3 "$LAYER/../l3-reviewer/tests/mock_model.py" --port "$MOCK_PORT" \
+  --mode malformed > "$WORK/mock.log" 2>&1 &
+MOCK_PID=$!
+sleep 1
+REVIEWER_PORT="$(python3 -c "
+import socket
+s = socket.socket(); s.bind(('127.0.0.1', 0))
+print(s.getsockname()[1]); s.close()")"
+SDLC_REVIEWER_PROVIDER=openai-compat \
+SDLC_REVIEWER_BASE_URL="http://127.0.0.1:$MOCK_PORT" \
+SDLC_REVIEWER_MODEL=mock-model \
+SDLC_REVIEWER_LISTEN=127.0.0.1 SDLC_REVIEWER_PORT="$REVIEWER_PORT" \
+SDLC_REVIEWER_AUDIT="$WORK/reviewer-audit.jsonl" \
+  python3 "$LAYER/../l3-reviewer/reviewer_service.py" --serve \
+  >"$WORK/reviewer-mock.log" 2>&1 &
+REVIEWER_PID=$!
+sleep 2
+
+R="$(new_repo garbage)"
+commit_change "$R" "example(probe): add a probe file"
+_out="$(run_gate "$R")"
+if [ $? -ne 0 ] && printf '%s' "$_out" | grep -q "NO-GO"; then
+  report PASS unusable-review-is-no-go "S4 got an answer it could not use"
+else
+  report FAIL unusable-review-is-no-go "a garbage review passed as a review"
+fi
+if [ ! -f "$R/.sdlc/current-go.token" ]; then
+  report PASS unusable-review-issues-no-token "no token"
+else
+  report FAIL unusable-review-issues-no-token "a token was issued on a model error"
+fi
+kill "$MOCK_PID" 2>/dev/null
+stop_reviewer
+start_reviewer || true
+
 printf '\n── stages that cannot be waived ──\n\n'
 
 # S1 is deterministic and has no bypass. A commit message outside the

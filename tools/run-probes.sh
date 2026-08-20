@@ -19,6 +19,7 @@ SUITES="l0:layers/l0-governance/tests/test_adr_lint.sh
 l1:layers/l1-input-hardening/tests/test_sanitize.sh
 l2:layers/l2-output-gate/tests/test_gate.sh
 l3:layers/l3-reviewer/tests/test_reviewer.sh
+l3-backends:layers/l3-reviewer/tests/test_backends.sh
 l4:layers/l4-server-enforcement/tests/test_pre_receive.sh
 l5:layers/l5-deploy-audit/tests/test_ledger.sh
 bootstrap:bootstrap/tests/test_bootstrap.sh"
