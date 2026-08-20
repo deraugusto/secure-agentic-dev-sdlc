@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# L1 · post-checkout — a branch switch replaces most of the working copy, so it
+# gets a full scan; a file checkout gets a targeted one.
+# Args: $1 previous HEAD, $2 new HEAD, $3 flag (1 = branch switch)
+set -uo pipefail
+
+REPO="$(git rev-parse --show-toplevel)"
+SCANNER="$REPO/layers/l1-input-hardening/sanitize.py"
+[[ -f "$SCANNER" ]] || exit 0
+
+cd "$REPO" || exit 0
+
+if [[ "${3:-0}" == "1" ]]; then
+  python3 "$SCANNER" --trigger post-git-checkout --full
+  exit $?
+fi
+
+changed="$(git diff --name-only "${1:-HEAD}" "${2:-HEAD}" 2>/dev/null || true)"
+[[ -z "$changed" ]] && exit 0
+
+files=()
+while IFS= read -r file; do
+  [[ -n "$file" && -f "$REPO/$file" ]] && files+=("$file")
+done <<< "$changed"
+
+(( ${#files[@]} == 0 )) && exit 0
+python3 "$SCANNER" --trigger post-git-checkout "${files[@]}"

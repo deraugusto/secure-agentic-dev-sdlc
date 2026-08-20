@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# L1 · post-merge — content arriving by `git pull` is scanned before an agent
+# can read it. git runs a merge internally for a pull, so this is the pull hook.
+set -uo pipefail
+
+REPO="$(git rev-parse --show-toplevel)"
+SCANNER="$REPO/layers/l1-input-hardening/sanitize.py"
+[[ -x "$SCANNER" || -f "$SCANNER" ]] || exit 0
+
+changed="$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD 2>/dev/null || true)"
+[[ -z "$changed" ]] && exit 0
+
+files=()
+while IFS= read -r file; do
+  [[ -n "$file" && -f "$REPO/$file" ]] && files+=("$file")
+done <<< "$changed"
+
+(( ${#files[@]} == 0 )) && exit 0
+
+cd "$REPO" || exit 0
+python3 "$SCANNER" --trigger post-git-pull "${files[@]}"

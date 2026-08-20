@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# L1 · the wrapper seam.
+#
+# Put this in front of whatever coding agent you run. It scans the working copy
+# first and refuses to start the agent if the scan rejects, so untrusted content
+# is caught before anything reads it -- not after.
+#
+#   agent-safe [args passed through to the agent]
+#
+# Configuration, all environment, no addresses:
+#
+#   SDLC_AGENT_BIN     the real agent executable. Required.
+#   SDLC_REPO_ROOT     working copy to scan. Default: the enclosing git repo.
+#   SDLC_AGENT_UNSET   space-separated env vars to unset before exec.
+#                      Default: the common provider credential variables.
+#
+# Installation is deliberately manual and deliberately awkward. The usual move
+# is to symlink this over the agent's own name so the wrapper cannot be skipped
+# by habit:
+#
+#   mv "$(command -v <agent>)" /usr/local/bin/<agent>-real
+#   ln -s /path/to/agent-safe /usr/local/bin/<agent>
+#   export SDLC_AGENT_BIN=/usr/local/bin/<agent>-real
+#
+# Renaming the real binary out of PATH matters: if the original name still
+# resolves, the wrapper is one `PATH` change away from being bypassed, which is
+# the same as not having it.
+
+set -euo pipefail
+
+if [[ -z "${SDLC_AGENT_BIN:-}" ]]; then
+  echo "[agent-safe] SDLC_AGENT_BIN is unset — refusing to guess which binary to run." >&2
+  exit 2
+fi
+
+if [[ ! -x "$SDLC_AGENT_BIN" ]]; then
+  echo "[agent-safe] SDLC_AGENT_BIN is not executable: $SDLC_AGENT_BIN" >&2
+  exit 2
+fi
+
+REPO="${SDLC_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+SCANNER="$REPO/layers/l1-input-hardening/sanitize.py"
+
+if [[ ! -f "$SCANNER" ]]; then
+  # Fail closed. A wrapper that silently degrades to a plain exec when its
+  # scanner is missing is worse than no wrapper: it looks like protection.
+  echo "[agent-safe] scanner not found at $SCANNER — refusing to run unscanned." >&2
+  exit 1
+fi
+
+# ── Stage 1 · scan ─────────────────────────────────────────────────────────
+if ! ( cd "$REPO" && python3 "$SCANNER" --trigger pre-agent-invoke --full ); then
+  echo "[agent-safe] L1 REJECT — agent invocation aborted." >&2
+  exit 1
+fi
+
+# ── Stage 2 · environment hygiene ──────────────────────────────────────────
+# The agent should get its credentials the way it normally does. Variables
+# inherited from an unrelated shell are a way for one provider's key to end up
+# in another provider's request.
+DEFAULT_UNSET="ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL
+OPENAI_API_KEY OPENAI_BASE_URL AZURE_OPENAI_API_KEY GOOGLE_API_KEY
+SDLC_REVIEWER_API_KEY"
+
+for var in ${SDLC_AGENT_UNSET:-$DEFAULT_UNSET}; do
+  unset "$var" || true
+done
+
+# ── Stage 3 · exec ─────────────────────────────────────────────────────────
+exec "$SDLC_AGENT_BIN" "$@"
