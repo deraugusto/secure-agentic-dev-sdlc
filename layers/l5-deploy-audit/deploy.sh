@@ -60,16 +60,21 @@ done
 # With no inventory.yaml at all, L5 has not been bootstrapped and there is
 # nothing to check against; that is a warning, not a stop, so the layer stays
 # usable on its own.
-if [[ -f "$REPO_ROOT/inventory.yaml" ]]; then
-  if ! python3 - "$TARGET" "$REPO_ROOT" <<'PYEOF'
+# SDLC_INVENTORY wins over the default location, the same way lib/inventory.py
+# resolves it. Without this the script would read a different inventory than
+# every other layer whenever that variable is set.
+INVENTORY_FILE="${SDLC_INVENTORY:-$REPO_ROOT/inventory.yaml}"
+
+if [[ -f "$INVENTORY_FILE" ]]; then
+  if ! python3 - "$TARGET" "$REPO_ROOT" "$INVENTORY_FILE" <<'PYEOF'
 import sys
 from pathlib import Path
 
-wanted, repo_root = sys.argv[1], sys.argv[2]
+wanted, repo_root, inventory_file = sys.argv[1], sys.argv[2], sys.argv[3]
 sys.path.insert(0, str(Path(repo_root) / "lib"))
 import inventory  # noqa: E402
 
-targets = inventory.get("targets", inventory.load(Path(repo_root) / "inventory.yaml")) or []
+targets = inventory.get("targets", inventory.load(inventory_file)) or []
 names = [t.get("name") for t in targets if isinstance(t, dict) and t.get("name")]
 if wanted in names:
     raise SystemExit(0)

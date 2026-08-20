@@ -130,10 +130,68 @@ else
   report FAIL deploy-dry-run-writes-nothing "the dry run wrote $((_after - _before)) file(s)"
 fi
 
-if ! "$DEPLOY" --target does-not-exist --dry-run >/dev/null 2>&1; then
-  report PASS unknown-target-refused "refused"
+# The target check needs an inventory to check against, and inventory.yaml is
+# git-ignored -- so this case has to bring its own. Relying on whichever file
+# happens to sit in the working tree is how a suite passes here and fails in a
+# fresh clone, which is exactly what it did before this was written.
+INV="$WORK/inventory.yaml"
+cat > "$INV" <<'TXT'
+roles:
+  dev:
+    addr: localhost
+    author_model: alpha-coder-7b
+  git:
+    addr: git.example.internal
+    type: gitea
+    user: git
+    repo_path: /srv/git/x.git
+    ssh_port: 22
+  reviewer:
+    addr: 127.0.0.1
+    port: 8080
+    provider: offline
+    model: beta-instruct-8b
+    api_key_env: SDLC_REVIEWER_API_KEY
+  targets:
+    - name: hello-world
+      addr: app.example.internal
+      user: deploy
+      path: /srv/hello-world
+  provisioner: none
+  sink:
+    addr: localhost
+    path: ./.sdlc/audit
+layers:
+  l0: true
+  l1: true
+  l2: true
+  l3: true
+  l4: false
+  l5: true
+profile: existing-infra
+TXT
+
+if ! SDLC_INVENTORY="$INV" "$DEPLOY" --target does-not-exist --dry-run >/dev/null 2>&1; then
+  report PASS unknown-target-refused "refused a target the inventory does not declare"
 else
   report FAIL unknown-target-refused "accepted a target it knows nothing about"
+fi
+
+if SDLC_INVENTORY="$INV" "$DEPLOY" --target hello-world --dry-run >/dev/null 2>&1; then
+  report PASS declared-target-accepted "the declared one still works"
+else
+  report FAIL declared-target-accepted "refused a target the inventory declares"
+fi
+
+# Without an inventory the check cannot run. That is a warning and not a stop,
+# so that L5 stays usable before the bootstrap has been run -- but it must say
+# so rather than implying the target was verified.
+_out="$(SDLC_INVENTORY="$WORK/does-not-exist.yaml" \
+        "$DEPLOY" --target anything --dry-run 2>&1)"
+if printf '%s' "$_out" | grep -qi "no inventory.yaml"; then
+  report PASS missing-inventory-is-declared "says the target could not be checked"
+else
+  report FAIL missing-inventory-is-declared "silently skipped the target check"
 fi
 
 printf '\n%s/%s PASS\n\n' "$PASS" "$((PASS+FAIL))"
