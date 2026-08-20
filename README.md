@@ -180,10 +180,16 @@ having a bad day.
 prove internal consistency, not correctness against an adversary who did not
 write them. Beyond that, three things remain unproven in the field:
 
-- **A real model.** The wire protocols are verified, the request envelope is
-  verified, and every failure mode is verified. What no test can tell you is
-  whether an actual model, on an actual changeset, produces a review worth
-  reading. That is a property of the model you choose, not of this code.
+- **Your model, on your changesets.** The pipeline has been driven end to end
+  against a real local model — `qwen3:8b` over Ollama — which found a planted
+  credential, classified it correctly and placed it on the right line, and the
+  gate issued a GO. That run also produced the one substantive bug this
+  repository has had so far: the prompt presented file content unnumbered while
+  the output contract demanded exact line ranges, so a correct review was
+  discarded over an off-by-two. Fixed by numbering the lines. What remains
+  unknowable in advance is whether *your* model, on *your* code, produces
+  reviews worth reading. Budget roughly a minute per review on an 8B model, and
+  expect a smaller one to struggle with the strict output contract.
 - **The pre-receive hook against a live forge.** Its 14 probes run against
   throwaway bare repositories. Installing it on a running git server is a step
   nobody has taken here yet.
