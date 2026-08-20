@@ -128,6 +128,21 @@ What it does is make a specific set of failures loud: content that arrives
 poisoned, output that carries something it should not, a review that never
 happened, a push that destroys history, a deploy that broke and stayed broken.
 
+**It assumes your agent runs as a process on a machine you control** — your
+workstation, a build host, a VM, a container you start. L1 puts a wrapper in
+front of the agent's binary and installs git hooks in a local clone; L2's
+enforcement is a client-side `pre-push` hook. Neither exists when the agent runs
+in somebody else's infrastructure and hands you a branch.
+
+With a **cloud-hosted agent** you keep L0, L3, L4 and L5 — the reviewer is an
+HTTP service, the destructive-push guard judges every push regardless of origin,
+the deploy runs where you run it. You lose L1 entirely and L2's *enforcement*,
+though the gate itself still runs after the fact. Extending it would mostly take
+one change: teaching the pre-receive hook to require a valid GO token, which
+would move the gate from advisory to enforced for local and hosted agents alike.
+[docs/using-it.md](docs/using-it.md#where-the-agent-runs--and-where-this-stops-working)
+lays out the whole boundary, layer by layer.
+
 ## What you get, what you bring
 
 ![What the repository ships versus what you provide](docs/assets/what-you-bring.svg)
@@ -315,6 +330,17 @@ Details, guarantees and the negative probe for each: [docs/layers.md](docs/layer
 
 ## Known limits
 
+- **The gate is enforced client-side.** `pre-push` lives in `.git/hooks`, and
+  anything that can write there can remove it. L4 refuses destructive pushes but
+  does **not** check for a GO token, so a push that skipped the gate is accepted
+  by the server as long as it destroys nothing. L2 makes skipping the gate a
+  decision somebody takes on purpose; it does not make it impossible. Teaching
+  the pre-receive hook to require the token is the single highest-value
+  extension to this repository.
+- **The agent is assumed to run locally.** L1 and L2's enforcement do not exist
+  for an agent hosted in infrastructure you do not control; L0, L3, L4 and L5
+  are unaffected. See
+  [docs/using-it.md](docs/using-it.md#where-the-agent-runs--and-where-this-stops-working).
 - **github.com does not run pre-receive hooks.** They exist only on GitHub
   Enterprise Server. Against github.com, L4 degrades to branch protection plus a
   CI approximation, which is client-bypassable in ways the hook is not: a force

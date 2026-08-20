@@ -188,6 +188,74 @@ What does **not** help is running the gate less often. A token is bound to one
 commit and one content hash precisely so that it cannot be spread across a day's
 work.
 
+## Where the agent runs — and where this stops working
+
+**This baseline assumes the agent runs as a process on a machine you control:**
+your workstation, a build host, a VM, a container you start. That assumption is
+not decoration; three of the six layers are built on it.
+
+| Layer | Depends on local execution? | Why |
+|---|---|---|
+| L0 governance | no | files and a lint, no runtime |
+| L1 hardening | **yes** | the wrapper `exec`s the agent binary, and the git hooks run in a local clone |
+| L2 output gate | **yes, for enforcement** | the gate is a command you run; the `pre-push` hook that spends the token is client-side |
+| L3 review | no | an HTTP service; it does not care who calls it |
+| L4 server enforcement | no | runs on the git server, indifferent to where the push came from |
+| L5 deploy | no | runs where you run it |
+
+### What breaks with a cloud-hosted agent
+
+By "cloud-hosted" this means an agent that executes on infrastructure you do not
+control — a hosted coding agent, an agent inside a vendor's workspace, anything
+where you receive a branch or a pull request rather than a working copy.
+
+- **L1 does not apply at all.** There is no binary to put a wrapper in front of
+  and no local clone for the hooks to fire in. Content reaches the agent without
+  passing the scanner, which is the entire point of that layer.
+- **L2 stops being enforced, though it still runs.** You can run the gate on the
+  result after the fact, and the token mechanism still works. What you lose is
+  the enforcement: `pre-push` is a client-side hook, and a push that originates
+  in someone else's infrastructure never executes it.
+- **L3, L4, L5 are unaffected.** The reviewer is an HTTP service. The
+  destructive-push guard runs on your git server and judges every push
+  regardless of origin. The deploy runs where you run it.
+
+So a cloud agent leaves you with L0, L3, L4 and L5 — a real subset, and enough
+to catch a destructive push or an unreviewed deploy, but not the input hardening
+and not an *enforced* gate.
+
+### An honest note about the gate, local or not
+
+The gate's enforcement is client-side even in the local case. `pre-push` lives in
+`.git/hooks`, and anything that can write there can remove it. L4 refuses
+destructive pushes but does **not** check for a GO token, so a push that skipped
+the gate entirely is accepted by the server as long as it destroys nothing.
+
+That is a deliberate scope boundary of this wave rather than an oversight, and
+it is the honest reading of what L2 gives you: it makes skipping the gate a
+decision somebody has to take on purpose, not something that happens by
+accident. It does not make skipping impossible.
+
+### What extending it to the cloud would take
+
+The shape of the fix is known, and it is mostly one change:
+
+1. **Teach L4 to require the token.** The GO token is already bound to a commit
+   and a content hash and sealed against editing. A pre-receive hook that
+   demanded a valid token for the pushed commit would move the gate from
+   advisory to enforced — for local and cloud agents alike, and without touching
+   the client. This is the single highest-value extension to this repository.
+2. **Move the scan to where the code arrives.** With no local clone, L1's
+   equivalent is a scan on the receiving side, before a human or a downstream
+   agent reads the branch. The scanner takes a path and needs nothing else, so it
+   runs there unchanged.
+3. **Run the gate as a job, not a command.** On the receiving side, triggered by
+   the incoming branch, issuing the token that step 1 then requires.
+
+None of that exists here today. It is written down because a reader with a fleet
+of hosted agents should be able to see the gap before adopting, rather than
+after.
+
 ## 2 · Keep the reviewer running
 
 L2 stage S4 calls the reviewer service over HTTP. If it is not listening, the
