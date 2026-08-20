@@ -166,7 +166,7 @@ happened.
 
 Fair question, and the honest answer has two halves.
 
-**What is demonstrated.** Run `./tools/run-probes.sh` and you get 99 cases across
+**What is demonstrated.** Run `./tools/run-probes.sh` and you get 101 cases across
 all six layers plus the bootstrap. Most of them assert a *refusal*, which is the
 half that matters: a collapsed separation, a token spent on the wrong commit, an
 edited reviewer prompt, a push deleting decision records, a rewritten ledger
@@ -245,6 +245,44 @@ Profiles: `existing-infra` (default, provisions nothing), `single-host`,
 `proxmox-full`. Each one states in the run which guarantee it does **not**
 deliver. See [docs/bootstrap.md](docs/bootstrap.md).
 
+## Using it with your own agent
+
+The bootstrap installs the machinery. The loop you work in afterwards is five
+things, and only one of them is manual:
+
+```sh
+# once: put your agent behind the wrapper, so nothing reads unscanned content
+sudo mv "$(command -v your-agent)" /usr/local/bin/your-agent-real
+sudo ln -s "$PWD/layers/l1-input-hardening/agent-safe" /usr/local/bin/your-agent
+export SDLC_AGENT_BIN=/usr/local/bin/your-agent-real
+
+# once: keep the reviewer running, or the gate fails closed on every push
+sudo cp layers/l3-reviewer/reviewer.service.example /etc/systemd/system/sdlc-reviewer.service
+sudo systemctl enable --now sdlc-reviewer
+
+# then, per change:
+your-agent                                    # L1 scans before it starts
+git commit -m "script(scope): do the thing"   # L0 checks the message
+python3 layers/l2-output-gate/pipeline.py     # S0…S5, issues the GO token
+git push                                      # pre-push spends it, L4 judges it
+```
+
+The gate is the manual step, deliberately: it talks to a model and takes as long
+as your model takes, and a hook that silently blocks a push for ninety seconds
+is a hook people uninstall.
+
+Two things you must set for the guarantees to be real rather than nominal:
+`roles.dev.author_model` in `inventory.yaml`, because the reviewer/author
+separation is checked against what you *declare*; and your own tripwire canaries,
+because the shipped one is an example and a canary is worth what its obscurity
+is worth.
+
+**[docs/using-it.md](docs/using-it.md)** covers the whole loop, including a table
+of every refusal you can hit and what it means — in particular the distinction
+between `model-error`, which is the machinery having a bad day, and a finding,
+which is the machinery working. Treating those two the same is how a team learns
+to bypass on reflex.
+
 ## The layers
 
 | | Layer | Needs | Refuses |
@@ -280,13 +318,13 @@ Proves the machinery on a real service, end to end, with no dependencies beyond
 Node.js for the example itself:
 
 ```sh
-./tools/run-probes.sh                                      # 99 cases, all layers
+./tools/run-probes.sh                                      # 101 cases, all layers
 ./layers/l5-deploy-audit/deploy.sh --target hello-world --local
 SDLC_BREAK_SMOKE=1 ./layers/l5-deploy-audit/deploy.sh --target hello-world --local
 python3 layers/l5-deploy-audit/ledger.py verify
 ```
 
-`run-probes.sh` runs every layer's suite — 99 cases, and most of them assert a
+`run-probes.sh` runs every layer's suite — 101 cases, and most of them assert a
 **refusal**: a collapsed separation, a token spent on the wrong commit, an
 edited reviewer prompt, a push that deletes decision records, a rewritten
 ledger entry. Run one suite alone with `./tools/run-probes.sh l2`.
@@ -299,7 +337,7 @@ ledger entry. Run one suite alone with `./tools/run-probes.sh l2`.
 | L3 | 10 | edited apparatus, missing seal, the reviewer/author family check |
 | L3 backends | 10 | the real HTTP path: both protocols, plus 500, 401, timeout, malformed JSON, half a review |
 | L4 | 14 | mass delete, protected paths and refs, a broken hook failing closed |
-| L5 | 7 | edited, removed and re-hashed ledger entries; an undeclared target |
+| L5 | 9 | edited, removed and re-hashed ledger entries; declared, undeclared and unverifiable targets |
 | bootstrap | 24 | every collapsed separation, refusal to guess, dry-run purity, idempotence |
 
 The third line of the acceptance run is the one that matters: the smoke test
@@ -339,7 +377,7 @@ every file lengthens every diff and changes nothing legally.
 bootstrap/       questionnaire, profiles, the one hypervisor-coupled directory
 layers/l0..l5/   one directory per layer, each independently removable
 lib/             inventory accessor and a small YAML reader (stdlib only)
-docs/            layer reference, bootstrap guide, decision records
+docs/            layer reference, the daily loop, bootstrap guide, ADRs
 example/         the hello-world service the acceptance run drives
 tools/           the pre-handover leak sweep
 ```

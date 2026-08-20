@@ -1,0 +1,76 @@
+# L3 · the reviewer, as a service.
+#
+#   sudo cp reviewer.service.example /etc/systemd/system/sdlc-reviewer.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now sdlc-reviewer
+#
+# Set User, WorkingDirectory and the ExecStart path below. Everything else has
+# a working default.
+#
+# Why a unit rather than a terminal: stage S4 of the output gate calls this over
+# HTTP, and a reviewer that is not listening produces UNREACHABLE, NO-GO and no
+# token. That is the correct refusal, but a gate that refuses because somebody
+# closed a shell teaches people to distrust the gate rather than the code.
+
+[Unit]
+Description=SDLC baseline reviewer service (L3)
+Documentation=file:///opt/agentic-sdlc-baseline/docs/layers.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# --- set these three ---
+User=sdlc
+Group=sdlc
+WorkingDirectory=/opt/agentic-sdlc-baseline
+
+ExecStart=/usr/bin/python3 layers/l3-reviewer/reviewer_service.py --serve
+
+# Configuration. Environment wins over inventory.yaml; leaving these unset lets
+# the service read roles.reviewer from the inventory instead, which is the
+# normal case on a bootstrapped repository.
+#
+#Environment=SDLC_REVIEWER_PROVIDER=ollama
+#Environment=SDLC_REVIEWER_BASE_URL=http://model-host.example.internal:11434
+#Environment=SDLC_REVIEWER_MODEL=your-model
+#Environment=SDLC_REVIEWER_PORT=8080
+#
+# Credentials never belong in this file. Name an environment file the unit
+# reads, owned by the service user and mode 0600:
+#EnvironmentFile=-/etc/sdlc/reviewer.env
+
+# A model on cold cache can take a while; the service applies its own timeouts.
+#Environment=SDLC_REVIEWER_SOFT_TIMEOUT=60
+#Environment=SDLC_REVIEWER_HARD_TIMEOUT=180
+
+Restart=on-failure
+RestartSec=5
+
+# The reviewer reads a changeset and talks to one endpoint. It has no business
+# writing anywhere except its own audit log, and confinement is cheap here.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/agentic-sdlc-baseline/.sdlc
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+
+# Egress: the reviewer needs the model endpoint and nothing else. Narrow this to
+# your model host if your systemd is new enough to make it worth the effort --
+# IPAddressAllow is a blunt instrument, but a reviewer that can reach the whole
+# internet is a component with more reach than its job requires.
+#IPAddressDeny=any
+#IPAddressAllow=localhost
+#IPAddressAllow=<the address of your model host>/32
+
+[Install]
+WantedBy=multi-user.target
