@@ -210,8 +210,20 @@ def build_prompt(bundle: dict) -> str:
     parts = [mandate, "", "---", "", "# Changeset under review", "",
              f"Intent as stated by the author: {intent}", ""]
     for entry in bundle["changeset"]["files"]:
-        parts += [f"## {entry['path']}", "", "```",
-                  entry.get("content", ""), "```", ""]
+        content = entry.get("content", "")
+        lines = content.splitlines()
+        # Numbered, because the output contract demands a line range inside the
+        # file and then rejects the whole review when one is wrong. Presenting
+        # the content unnumbered asks the model to count, which it does badly
+        # and which nothing in the answer reveals -- the review comes back
+        # substantively correct and gets discarded over an off-by-two.
+        width = len(str(len(lines))) if lines else 1
+        numbered = "\n".join(f"{i:>{width}} | {line}"
+                             for i, line in enumerate(lines, start=1))
+        parts += [f"## {entry['path']}",
+                  f"({len(lines)} lines; the numbers left of the pipe are line "
+                  f"numbers and are not part of the file)", "",
+                  "```", numbered, "```", ""]
     return "\n".join(parts)
 
 
