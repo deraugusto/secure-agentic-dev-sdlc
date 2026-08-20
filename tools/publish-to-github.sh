@@ -51,6 +51,23 @@ fi
 gpg --list-secret-keys "$GITHUB_SIGNKEY" >/dev/null 2>&1 \
   || { echo "[publish] signing key $GITHUB_SIGNKEY not in the keyring" >&2; exit 1; }
 
+# The published copy must have passed the same gate as the primary remote.
+#
+# It would not otherwise: this script pushes from a throwaway clone, and a clone
+# carries no hooks, so the pre-push check that guards `git push` simply is not
+# there. That turns the publication path into the shortest way around the gate --
+# push what the gate refused, to the one remote that is public. Running the hook
+# ourselves closes it, and reusing the hook rather than reimplementing its four
+# assertions means the two cannot drift apart.
+if [ "$DRY_RUN" != "1" ]; then
+  if ! bash "$REPO_ROOT/layers/l2-output-gate/pre-push-hook.sh"; then
+    echo "[publish] REFUSING: no valid GO token for $(git -C "$REPO_ROOT" rev-parse --short HEAD)." >&2
+    echo "          Publishing is a push like any other. Run the gate first:" >&2
+    echo "            python3 layers/l2-output-gate/pipeline.py" >&2
+    exit 1
+  fi
+fi
+
 say "source   $SOURCE_BRANCH ($(git -C "$REPO_ROOT" rev-parse --short HEAD))"
 say "target   $GITHUB_REPO ($GITHUB_BRANCH)"
 say "identity $GITHUB_NOREPLY"
