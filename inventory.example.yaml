@@ -1,0 +1,77 @@
+# inventory.yaml — the only file in this repository allowed to name a machine.
+#
+# Copy to inventory.yaml, or let ./bootstrap/init.sh write it for you from the
+# questionnaire. inventory.yaml is git-ignored: your addresses are yours.
+#
+# Six roles. They may co-locate. Three separations are enforced by
+# `python3 lib/inventory.py --validate` and refuse to be waved through:
+#
+#   git      != dev          otherwise a compromised dev host removes the
+#                            server-side hook that is supposed to constrain it
+#   targets  != dev          otherwise the writing hand reaches production
+#   reviewer model != author model
+#                            otherwise the review is a self-check with the
+#                            author's own blind spots
+#
+# Everything else is preference. A single machine running dev, reviewer and
+# sink is a supported, honest configuration — it just declares fewer guarantees.
+
+roles:
+  dev:
+    addr: localhost
+    # The model that writes the code. Declared so the reviewer/author
+    # separation can be checked rather than assumed. Leave unset only if you
+    # accept that the check downgrades to a warning.
+    #
+    # The check matches on family, not on string equality: a known family name
+    # anywhere in the string wins, and for names it does not recognise it falls
+    # back to comparing the leading token. Two placeholders sharing a prefix
+    # therefore collide on purpose -- name the family you actually run.
+    author_model: alpha-coder-7b
+
+  git:
+    addr: git.example.internal
+    type: gitea            # gitea | gitlab | github | plain-ssh
+    user: git
+    repo_path: /srv/git/hello-world.git
+    ssh_port: 22
+
+  reviewer:
+    addr: 127.0.0.1
+    port: 8080
+    provider: offline      # ollama | openai-compat | offline
+    model: beta-instruct-8b
+    # For provider=openai-compat the endpoint is derived as
+    #   http://<addr>:<port>/v1/chat/completions
+    # For provider=ollama as
+    #   http://<addr>:<port>/api/chat
+    # Credentials never live here. Name an environment variable instead:
+    api_key_env: SDLC_REVIEWER_API_KEY
+
+  targets:
+    - name: hello-world
+      addr: app.example.internal
+      user: deploy
+      path: /srv/hello-world
+      smoke_url: http://app.example.internal:3000/healthz
+
+  provisioner: none        # proxmox | docker | none
+
+  sink:
+    addr: localhost
+    path: ./.sdlc/audit    # append-only audit destination
+
+# Layers are individually selectable. l0 cannot be switched off — it is the
+# governance spine and needs no infrastructure at all.
+layers:
+  l0: true                 # governance spine: ADR schema, lint, conventions
+  l1: true                 # input hardening: sanitize + git hooks
+  l2: true                 # output gate: S0-S5, GO token, pre-push hook
+  l3: true                 # independent review: service, 7 disciplines
+  l4: false                # server enforcement: pre-receive destructive guard
+  l5: false                # deploy + audit: verified deploy, hash-chained ledger
+
+# Bootstrap profile this inventory was produced by. Informational; the profile
+# also determines which guarantees the bootstrap protocol declares as NOT
+# delivered.
+profile: existing-infra    # existing-infra | single-host | proxmox-full

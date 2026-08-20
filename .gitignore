@@ -1,0 +1,6 @@
+
+# Written by bootstrap/init.sh. Your addresses are yours.
+inventory.yaml
+.sdlc/
+__pycache__/
+*.pyc
