@@ -132,6 +132,41 @@ fi
 [ -n "$AGENT_PATH" ] || die "cannot find '$AGENT' on PATH and it is not an executable path"
 
 AGENT_NAME="$(basename "$AGENT_PATH")"
+
+# This script renames a binary. Pointed at the wrong one -- and it would most
+# likely be pointed there with sudo -- it takes the system apart: wrapping the
+# shell, the interpreter or git leaves a machine that cannot run the wrapper
+# that is now in front of them. None of these is ever a coding agent, so the
+# list is a refusal rather than a warning.
+case " sh bash dash zsh ksh fish env python python2 python3 perl ruby node \
+       git ssh scp sudo su systemctl service init cat ls cp mv rm ln chmod \
+       chown find grep sed awk tar apt apt-get dpkg yum dnf pacman brew \
+       docker podman kubectl " in
+  *" $AGENT_NAME "*)
+    die "refusing to wrap '$AGENT_NAME'.
+
+     That is a system binary, not a coding agent. Renaming it -- which is what
+     this script does -- would break the machine, and probably the very shell
+     you would need to undo it.
+
+     If you genuinely have an agent by that name, rename the agent."
+    ;;
+esac
+
+# Distribution directories are another shape of the same mistake. Agents live in
+# /usr/local/bin, ~/.local/bin or a vendor directory; a binary in /bin or /sbin
+# belongs to the package manager.
+case "$AGENT_DIR" in
+  /bin|/sbin|/usr/bin|/usr/sbin)
+    die "refusing to touch $AGENT_PATH.
+
+     $AGENT_DIR belongs to your package manager. A coding agent installed there
+     is unusual enough that this is far more likely to be the wrong target, and
+     the next package update would overwrite the symlink anyway.
+
+     If it really is your agent, copy it to /usr/local/bin first and wrap that."
+    ;;
+esac
 AGENT_DIR="$(dirname "$AGENT_PATH")"
 [ -n "$PREFIX" ] || PREFIX="$AGENT_DIR"
 REAL="$PREFIX/${AGENT_NAME}-real"
