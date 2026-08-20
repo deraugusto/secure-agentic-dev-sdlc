@@ -75,6 +75,69 @@ saw. L1 covers the paths git controls.
 
 ---
 
+### Installing the wrapper without doing it by hand
+
+```sh
+./layers/l1-input-hardening/install-wrapper.sh --agent your-agent --dry-run
+./layers/l1-input-hardening/install-wrapper.sh --agent your-agent
+./layers/l1-input-hardening/install-wrapper.sh --status
+./layers/l1-input-hardening/install-wrapper.sh --agent your-agent --uninstall
+```
+
+It works on an agent you already have installed — it looks the binary up on
+`PATH`, renames it to `<name>-real`, and puts a symlink to `agent-safe` under the
+original name. It refuses if the target is already wrapped, if the `-real` name
+is taken, or if the directory is not writable, and it verifies the result rather
+than assuming it. The only thing it does not do is edit your shell profile; it
+prints the `export SDLC_AGENT_BIN=…` line and leaves the decision to you.
+
+Repeat per agent. Four agents means four runs, and `--status` lists what is
+wrapped.
+
+## Scaling to more than one project
+
+**One installation of the baseline serves every project.** The wrapper resolves
+its scanner next to itself, not next to the code being scanned — so the baseline
+can live once at, say, `/opt/agentic-sdlc-baseline`, and every repository on the
+machine is scanned by that one copy. Nothing has to be vendored into your
+projects.
+
+```sh
+sudo git clone <baseline-url> /opt/agentic-sdlc-baseline
+sudo /opt/agentic-sdlc-baseline/layers/l1-input-hardening/install-wrapper.sh --agent your-agent
+```
+
+What scales how:
+
+| | Cost of adding one more |
+|---|---|
+| **another agent** | one `install-wrapper.sh` run |
+| **another project** | one `bootstrap/init.sh` run in that repo — it installs the hooks; the layer code stays where it is |
+| **another developer** | they bootstrap their own clone; L4 is central and already covers them |
+| **another repository on the git server** | install the pre-receive hook there once |
+| **throughput** | this is the real limit — see below |
+
+**The reviewer is the bottleneck, not the machinery.** Everything except S4 is
+deterministic and takes milliseconds. A review on a small local model took a
+median of 104 seconds in our measurements, and the model serialises even though
+the service is threaded. Ten developers pushing at once will queue behind one
+another.
+
+If that becomes the constraint, in the order that costs least:
+
+1. **A smaller or quantised model.** Review quality degrades gracefully; the
+   strict output contract does not, so watch for a rise in `model-error`.
+2. **A second reviewer instance** against a second model host. The gate reads
+   one endpoint from `inventory.yaml`, so this means a load balancer in front
+   rather than a change to the pipeline.
+3. **Batching by convention.** The gate runs per push, not per commit. A team
+   that pushes once per feature rather than once per commit pays the reviewer
+   once.
+
+What does **not** help is running the gate less often. A token is bound to one
+commit and one content hash precisely so that it cannot be spread across a day's
+work.
+
 ## 2 · Keep the reviewer running
 
 L2 stage S4 calls the reviewer service over HTTP. If it is not listening, the
