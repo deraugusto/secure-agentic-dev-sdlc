@@ -1,0 +1,22 @@
+# Answers used by the acceptance run and by test_bootstrap.sh.
+# Every value here is a placeholder. Nothing in this file describes a real host.
+ANS_DEV_ADDR=localhost
+ANS_AUTHOR_MODEL=alpha-coder-7b
+ANS_GIT_ADDR=git.example.internal
+ANS_GIT_TYPE=gitea
+ANS_GIT_USER=git
+ANS_GIT_REPO_PATH=/srv/git/hello-world.git
+ANS_GIT_SSH_PORT=22
+ANS_REVIEWER_PROVIDER=offline
+ANS_REVIEWER_MODEL=beta-instruct-8b
+ANS_REVIEWER_ADDR=127.0.0.1
+ANS_REVIEWER_PORT=8080
+ANS_REVIEWER_API_KEY_ENV=SDLC_REVIEWER_API_KEY
+ANS_TARGET_NAME=hello-world
+ANS_TARGET_ADDR=app.example.internal
+ANS_TARGET_USER=deploy
+ANS_TARGET_PATH=/srv/hello-world
+ANS_TARGET_SMOKE_URL=http://app.example.internal:3000/healthz
+ANS_PROVISIONER=none
+ANS_SINK_ADDR=localhost
+ANS_SINK_PATH=./.sdlc/audit

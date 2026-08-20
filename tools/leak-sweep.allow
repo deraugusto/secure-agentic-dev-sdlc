@@ -1,0 +1,15 @@
+# Declared exceptions to the leak sweep.
+#
+#   <repo-relative path>:<check label>:<exact value>    # why
+#
+# One value in one file per line. This is not a way to exclude a file: a
+# different finding in the same file still stops the commit. Every entry needs
+# a reason, and the reason is the part a reviewer actually reads.
+#
+# For source files, prefer a trailing '# leak-sweep: allow <reason>' on the
+# offending line -- it keeps the justification next to the thing being
+# justified. This file is for content that must not be edited, because editing
+# it would break a seal.
+
+layers/l2-output-gate/tripwire/example-canary.txt:inline-secret:token: SDLC-BASELINE-EXAMPLE-CANARY-DO-NOT-COPY-8f21c4    # The canary is example bait, not a credential. Its whole purpose is to be a string that must never appear in agent output; the file is hash-sealed in tripwire.sha256, so editing it to add a marker would break the seal it exists to protect.
+layers/l2-output-gate/tripwire.sha256:inline-secret:token: SDLC-BASELINE-EXAMPLE-CANARY-DO-NOT-COPY-8f21c4    # Same string, recorded in the seal file. Sealed by definition; a comment cannot be added without invalidating it.
