@@ -1,0 +1,30 @@
+# S5 · gate — map the stage results onto one decision and, on GO, issue a token
+# bound to this commit and this content.
+#
+# The token is what makes "the gate passed" a claim about a specific diff rather
+# than about a moment in time.
+stage_id: s5-gate
+version: "1.0"
+deny_default: true
+waivable: false
+capabilities:
+  fs_read:
+    - scope: "<AUDIT_DIR>/**"
+  fs_write:
+    - scope: "<AUDIT_DIR>/s5/**"
+    - scope: "<STATE_DIR>/current-go.token"
+  net_egress: []
+  exec:
+    - command: git
+      args: [rev-parse]
+      read_only: true
+scope_checks:
+  path_must_be_within: ["<AUDIT_DIR>", "<STATE_DIR>"]
+  reject_symlink_escape: true
+  reject_writes_to: ["<WORKING_COPY>/**"]
+hash_verify:
+  manifest_self_hash: "fb66d9101e1c59468c75fc238208a786c3aff3d578f011191fdde4173bf25dd9"
+  input_bundle_hash_required: true
+audit:
+  per_operation: true
+  sink: "<AUDIT_DIR>/s5/audit.jsonl"

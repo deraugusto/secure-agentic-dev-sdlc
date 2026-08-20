@@ -1,0 +1,25 @@
+# S1 · hard lint — deterministic rules over the assembled changeset.
+#
+# Not waivable. There is no flag for this stage and adding one would be a
+# change to the manifest, which changes its hash, which the pipeline notices.
+stage_id: s1-hardlint
+version: "1.0"
+deny_default: true
+waivable: false
+capabilities:
+  fs_read:
+    - scope: "<CHANGESET_ROOT>/**"
+  fs_write:
+    - scope: "<AUDIT_DIR>/s1/**"
+  net_egress: []
+  exec: []
+scope_checks:
+  path_must_be_within: ["<CHANGESET_ROOT>", "<AUDIT_DIR>"]
+  reject_symlink_escape: true
+  reject_writes_to: ["<WORKING_COPY>/**"]
+hash_verify:
+  manifest_self_hash: "9b0f31afc90f9759105815d0c7f4f32cf6ee8c4d4bcdb7bd205438a13f8b2602"
+  input_bundle_hash_required: true
+audit:
+  per_operation: true
+  sink: "<AUDIT_DIR>/s1/audit.jsonl"

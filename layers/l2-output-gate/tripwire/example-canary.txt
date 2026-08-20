@@ -1,0 +1,7 @@
+This file is a tripwire. Nothing legitimate reads it and nothing legitimate
+writes it. If its hash changes, the output gate stops the push.
+
+Replace it with your own before you rely on it: a canary whose location is
+documented in a public repository is a canary an attacker has already read.
+
+canary-token: SDLC-BASELINE-EXAMPLE-CANARY-DO-NOT-COPY-8f21c4

@@ -1,0 +1,32 @@
+# S4 · reviewer — the only stage that talks to a model, and the only stage a
+# bypass flag can reach.
+#
+# net_egress names a ROLE, not a host. The address comes from inventory.yaml at
+# runtime. A manifest carrying a literal address could not be published, and a
+# pipeline reading addresses from six places could not be moved.
+stage_id: s4-reviewer
+version: "1.0"
+deny_default: true
+waivable: true
+waiver_excludes: [tampering, bundle-malformed]
+capabilities:
+  fs_read:
+    - scope: "<CHANGESET_ROOT>/**"
+  fs_write:
+    - scope: "<BUNDLE_ROOT>/**"
+    - scope: "<AUDIT_DIR>/s4/**"
+  net_egress:
+    - role: reviewer
+      protocol: tcp
+      paths: ["/health", "/review"]
+  exec: []
+scope_checks:
+  path_must_be_within: ["<CHANGESET_ROOT>", "<BUNDLE_ROOT>", "<AUDIT_DIR>"]
+  reject_symlink_escape: true
+  reject_writes_to: ["<WORKING_COPY>/**"]
+hash_verify:
+  manifest_self_hash: "0b0c86a2f5f84946c99105c26f45e0cba6d2a2a278d131f7efb97699cf5c24dd"
+  input_bundle_hash_required: true
+audit:
+  per_operation: true
+  sink: "<AUDIT_DIR>/s4/audit.jsonl"

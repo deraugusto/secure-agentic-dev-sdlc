@@ -1,0 +1,31 @@
+# S0 · assembly — collect the changeset and build the review bundle.
+#
+# Placeholders in angle brackets are resolved at runtime from inventory.yaml and
+# the repository root. No manifest in this directory contains an address: an
+# egress entry names a ROLE, and the role's address is looked up in the
+# inventory. That is what lets these files be published unchanged.
+stage_id: s0-assembly
+version: "1.0"
+deny_default: true
+waivable: false
+capabilities:
+  fs_read:
+    - scope: "<WORKING_COPY>/**"
+  fs_write:
+    - scope: "<CHANGESET_ROOT>/**"
+    - scope: "<AUDIT_DIR>/s0/**"
+  net_egress: []
+  exec:
+    - command: git
+      args: [diff, ls-files, rev-parse, log, status]
+      read_only: true
+scope_checks:
+  path_must_be_within: ["<WORKING_COPY>", "<CHANGESET_ROOT>", "<AUDIT_DIR>"]
+  reject_symlink_escape: true
+  reject_writes_to: ["<WORKING_COPY>/**"]
+hash_verify:
+  manifest_self_hash: "82062302b3fcaef7a62b2f2776b198abf54c48eb9e02435de8169b0c6387888c"
+  input_bundle_hash_required: false
+audit:
+  per_operation: true
+  sink: "<AUDIT_DIR>/s0/audit.jsonl"

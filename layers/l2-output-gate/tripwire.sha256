@@ -1,0 +1,13 @@
+# S3 tripwire manifest.
+#
+# Two line kinds:
+#   <sha256>  <path relative to tripwire/>   a canary file whose hash must hold
+#   token: <string>                          a string that must not appear in
+#                                            any changeset file outside tripwire/
+#
+# This file's own hash is sealed into manifests/s3-tripwire.yaml. After editing
+# it, re-seal:  python3 pipeline.py --seal-manifests
+
+6a2bf4447d45023f8d17aa086e528b9fa121971ff58ab02bf4ba980304c8902d  example-canary.txt
+
+token: SDLC-BASELINE-EXAMPLE-CANARY-DO-NOT-COPY-8f21c4

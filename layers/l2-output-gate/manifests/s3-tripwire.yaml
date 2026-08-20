@@ -1,0 +1,28 @@
+# S3 · tripwire — canary files that no legitimate change touches.
+#
+# A canary is worth exactly what its obscurity is worth, which is why the
+# baseline ships the mechanism and an example, and expects you to place your
+# own. Reading the tripwire directory tells an attacker where the tripwires are.
+stage_id: s3-tripwire
+version: "1.0"
+deny_default: true
+waivable: false
+capabilities:
+  fs_read:
+    - scope: "<CHANGESET_ROOT>/**"
+    - scope: "<TRIPWIRE_DIR>/**"
+  fs_write:
+    - scope: "<AUDIT_DIR>/s3/**"
+  net_egress: []
+  exec: []
+scope_checks:
+  path_must_be_within: ["<CHANGESET_ROOT>", "<AUDIT_DIR>", "<TRIPWIRE_DIR>"]
+  reject_symlink_escape: true
+  reject_writes_to: ["<WORKING_COPY>/**"]
+hash_verify:
+  manifest_self_hash: "68acb5c9a98b26fb322e6b4db1d23725f5b1bef80ff3068e6aee0f5fda13a12e"
+  tripwire_manifest_hash: "40caac173f40f3bef5c453713a9799ea16181b1e5227d8f347411ab7cd08cc7f"
+  input_bundle_hash_required: true
+audit:
+  per_operation: true
+  sink: "<AUDIT_DIR>/s3/audit.jsonl"
