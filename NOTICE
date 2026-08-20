@@ -1,0 +1,36 @@
+agentic-sdlc-baseline
+Copyright 2026 Augusto de Abreu
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use
+this work except in compliance with the License. You may obtain a copy of the
+License in the LICENSE file distributed with this work, or at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed
+under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+CONDITIONS OF ANY KIND, either express or implied.
+
+--------------------------------------------------------------------------------
+
+Origin and attribution
+
+This baseline was extracted from a private system in which the same lifecycle
+grew alongside the application it was built to protect. What transferred is the
+role model and the mechanics; the topology did not, deliberately and by design.
+Nothing in this repository describes that system's network, hosts or addresses,
+and no example here is derived from a real one.
+
+Read that as the intended limit of the attribution: the value being shared is
+the reasoning about which separations carry a security property, not a
+description of somebody's infrastructure.
+
+--------------------------------------------------------------------------------
+
+Note on the warranty disclaimer
+
+The disclaimer above is not boilerplate to skim past. This repository documents
+security properties AND the precise points at which each of them stops holding
+-- see docs/layers.md, where every layer states what it does not give you.
+Adopting a layer without reading its limits is how a baseline becomes a false
+sense of security, which is worse than no baseline at all.
