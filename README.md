@@ -432,6 +432,15 @@ which security properties stop holding.
 No licence headers in source files. The licence covers the work; a header in
 every file lengthens every diff and changes nothing legally.
 
+## Versions
+
+`v0.3.0` — see [CHANGELOG.md](CHANGELOG.md).
+
+Deliberately `0.x`. Two things have to be true before this claims a 1.0, and
+neither is yet: the pre-receive guard has never run on a live git server, and
+the output gate is enforced by a client-side hook that anything with write
+access to `.git/hooks` can remove.
+
 ## Repository layout
 
 ```

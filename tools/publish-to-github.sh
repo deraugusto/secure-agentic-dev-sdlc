@@ -132,8 +132,27 @@ fi
 }
 
 OWNER="${GITHUB_REPO%%/*}"
-git push --force \
-  "https://${OWNER}:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git" \
+REMOTE_URL="https://${OWNER}:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
+
+git push --force "$REMOTE_URL" \
   "$SOURCE_BRANCH:$GITHUB_BRANCH" 2>&1 | sed "s/${GITHUB_TOKEN}/<token>/g"
+
+# Tags need re-creating rather than copying. The published history is rewritten,
+# so a tag from the source points at a commit that does not exist here; pushing
+# it would leave a dangling reference. Any tag on the source HEAD is recreated
+# on the rewritten HEAD instead, signed with the publishing key.
+SOURCE_TAGS="$(git -C "$REPO_ROOT" tag --points-at HEAD 2>/dev/null || true)"
+for _tag in $SOURCE_TAGS; do
+  _msg="$(git -C "$REPO_ROOT" for-each-ref --format='%(contents:subject)' \
+          "refs/tags/$_tag" 2>/dev/null)"
+  [ -n "$_msg" ] || _msg="$_tag"
+  git -c user.name="$GITHUB_NAME" -c user.email="$GITHUB_NOREPLY" \
+      -c user.signingkey="$GITHUB_SIGNKEY" \
+      tag -f -s "$_tag" -m "$_msg" >/dev/null 2>&1 \
+    || git tag -f "$_tag" >/dev/null 2>&1
+  git push --force "$REMOTE_URL" "refs/tags/$_tag" 2>&1 \
+    | sed "s/${GITHUB_TOKEN}/<token>/g"
+  say "tag $_tag published"
+done
 
 say "published → https://github.com/$GITHUB_REPO"
