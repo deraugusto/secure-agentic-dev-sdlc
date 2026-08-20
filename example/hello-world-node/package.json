@@ -1,0 +1,14 @@
+{
+  "name": "hello-world-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lifecycle proof for the agentic SDLC baseline (ADR-0001). No dependencies, on purpose.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "smoke": "./smoke.sh"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
