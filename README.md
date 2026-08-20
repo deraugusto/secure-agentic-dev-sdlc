@@ -188,8 +188,16 @@ write them. Beyond that, three things remain unproven in the field:
   the output contract demanded exact line ranges, so a correct review was
   discarded over an off-by-two. Fixed by numbering the lines. What remains
   unknowable in advance is whether *your* model, on *your* code, produces
-  reviews worth reading. Budget roughly a minute per review on an 8B model, and
-  expect a smaller one to struggle with the strict output contract.
+  reviews worth reading.
+
+  Measured on that setup, for calibration: five consecutive reviews of a
+  three-line changeset carrying a planted credential and a planted shell
+  injection came back usable 5/5, at a median of 104 seconds, finding both
+  planted problems every time. A larger changeset did produce one run where the
+  model broke the output contract and the gate refused — which is the designed
+  behaviour, and also the friction to expect: on a small model a NO-GO is
+  sometimes the model having a bad run rather than a finding. The audit log
+  distinguishes the two, and `reason` tells you which you got.
 - **The pre-receive hook against a live forge.** Its 14 probes run against
   throwaway bare repositories. Installing it on a running git server is a step
   nobody has taken here yet.
