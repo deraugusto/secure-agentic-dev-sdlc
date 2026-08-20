@@ -102,7 +102,9 @@ say "signatures good on every commit"
 
 if [ "$DRY_RUN" = "1" ]; then
   say "dry run — nothing pushed"
-  git log --format='  %h %ae %s' | head -5
+  # -5 rather than a pipe into head: the pipe closes early and leaves the
+  # script exiting 141, which reads as a failure to anything checking it.
+  git log -5 --format='  %h %ae %s'
   exit 0
 fi
 
