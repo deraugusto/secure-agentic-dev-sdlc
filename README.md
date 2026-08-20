@@ -10,6 +10,17 @@ Every layer is optional except the first. Every layer ships at least one probe
 that proves it refuses what it claims to refuse, because a baseline that only
 demonstrates the happy path teaches the wrong half.
 
+> **If you are reading this on GitHub, one layer of this baseline is not
+> available to you here.** L4 is a `pre-receive` hook, and github.com does not
+> run pre-receive hooks — they exist only on GitHub Enterprise Server. On
+> github.com the destructive-push guard degrades to branch protection plus a CI
+> approximation, which is client-bypassable in ways the hook is not: a force
+> push accepted by the API is already applied by the time CI sees it, and
+> required checks gate merges rather than pushes. The installer refuses to
+> pretend otherwise; see [Known limits](#known-limits). This repository's own
+> home is a self-hosted forge for exactly that reason, and the GitHub copy is a
+> published mirror.
+
 ## What this is not
 
 It is not a framework, and there is nothing to import. It is not a CI template.
@@ -139,6 +150,20 @@ container id, a key or a token. Findings are either real, in which case they
 belong in `inventory.yaml`, or declared with a written reason. There is no
 option that lets one pass silently, because "review carefully before sharing" is
 exactly the control that degrades under time pressure.
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Apache rather than MIT for one reason that matters here: §3 grants patent rights
+explicitly. This is infrastructure that organisations wire into their own
+release path, and a permissive licence without a patent grant is the kind of
+detail that stalls exactly that adoption. The warranty disclaimer is worth
+reading rather than skimming, for a repository whose subject is the points at
+which security properties stop holding.
+
+No licence headers in source files. The licence covers the work; a header in
+every file lengthens every diff and changes nothing legally.
 
 ## Repository layout
 
