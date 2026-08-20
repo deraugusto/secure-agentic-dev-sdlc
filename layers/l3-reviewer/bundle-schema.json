@@ -1,0 +1,34 @@
+{
+  "schema_name": "sdlc-baseline-review-bundle",
+  "accepted_versions": ["1.0"],
+  "required_top_level": ["bundle_version", "run_id", "changeset", "context"],
+  "required_changeset": ["root_hash", "files"],
+  "required_file_entry": ["path", "sha256", "content"],
+  "required_context": ["intent_summary"],
+  "discipline_slugs": [
+    "output-sanitize-drift",
+    "hardcoded-secret",
+    "shell-injection",
+    "auth-logic-change",
+    "privilege-escalation",
+    "network-egress",
+    "trust-boundary-crossing"
+  ],
+  "severity_values": ["clear", "note", "concern", "block-recommended"],
+  "verdict_values": [
+    "annotations-only",
+    "backend-unavailable",
+    "backend-timeout",
+    "model-error",
+    "bundle-malformed",
+    "tampering"
+  ],
+  "notes": [
+    "accepted_versions is a whitelist matched by string equality, never a >= compare.",
+    "An unknown version is a refusal, not a best-effort parse: producer and consumer",
+    "having drifted apart is a defect, and a defect must not degrade into a mode.",
+    "File content is carried inline, not as a path reference. A reference is",
+    "unreadable from the reviewer's host whenever the reviewer is not the dev host,",
+    "which is the configuration the separations are there to produce."
+  ]
+}
