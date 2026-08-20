@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+# L4 · pre-receive destructive-change guard.
+#
+# This runs on the git server, inside the bare repository, before any ref is
+# updated. It is the only control in this baseline that a compromised client
+# cannot switch off, which is the entire reason the role model insists that the
+# git host is not the dev host.
+#
+# Contract: a pure function from stdin to an exit code.
+#   stdin        one line per ref update: <old-sha> <new-sha> <ref-name>
+#   exit 0       every ref update passes or is legitimately bypassed
+#   exit 1       at least one ref update is refused; nothing is applied
+#   side effect  one append-only audit line per ref update
+#
+# The hook never mutates repository state. It runs before the ref moves, so
+# even a `pass` verdict leaves nothing behind but the audit line.
+#
+# Failure mode is closed: `set -euo pipefail` means a bug in this script exits
+# non-zero and the push is refused. A broken guard is an operator-visible
+# outage, never a silent hole. That is the right way round.
+#
+# Configuration: pre-receive.conf beside this file, or environment variables.
+# The config file is parsed, never sourced -- a hook that sources a file is one
+# writable path away from being an execution primitive.
+
+set -euo pipefail
+
+HOOK_VERSION="1.0.0"
+ZERO_SHA="0000000000000000000000000000000000000000"
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONF_FILE="${SDLC_PRERECEIVE_CONF:-$HOOK_DIR/pre-receive.conf}"
+
+# ── Defaults ───────────────────────────────────────────────────────────────
+DELETION_THRESHOLD=500
+AUDIT_LOG="/var/log/sdlc-pre-receive-audit.jsonl"
+PROTECTED_GLOBS="docs/adr/*.md"
+PROTECTED_FILES="CONVENTIONS.md FOCUS-TEMPLATE.md docs/adr/ADR-INDEX.md inventory.example.yaml"
+PROTECTED_REFS="refs/heads/main refs/heads/master"
+BYPASS_VOCABULARY="repo-restructure legacy-cleanup branch-rebase archive-migration"
+
+# ── Config file · parsed, not sourced ──────────────────────────────────────
+if [[ -f "$CONF_FILE" ]]; then
+  while IFS= read -r raw; do
+    raw="${raw%%#*}"
+    [[ -z "${raw// }" ]] && continue
+    key="${raw%%=*}"; value="${raw#*=}"
+    key="$(printf '%s' "$key" | tr -d '[:space:]')"
+    value="$(printf '%s' "$value" | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//; s/^"//; s/"$//')"
+    case "$key" in
+      DELETION_THRESHOLD) [[ "$value" =~ ^[0-9]+$ ]] && DELETION_THRESHOLD="$value" ;;
+      AUDIT_LOG)          AUDIT_LOG="$value" ;;
+      PROTECTED_GLOBS)    PROTECTED_GLOBS="$value" ;;
+      PROTECTED_FILES)    PROTECTED_FILES="$value" ;;
+      PROTECTED_REFS)     PROTECTED_REFS="$value" ;;
+      BYPASS_VOCABULARY)  BYPASS_VOCABULARY="$value" ;;
+      *) printf '[L4] ignoring unknown config key: %s\n' "$key" >&2 ;;
+    esac
+  done < "$CONF_FILE"
+fi
+
+# Environment overrides the file, for test harnesses and one-off runs.
+DELETION_THRESHOLD="${SDLC_DELETION_THRESHOLD:-$DELETION_THRESHOLD}"
+AUDIT_LOG="${SDLC_PRERECEIVE_AUDIT:-$AUDIT_LOG}"
+
+# ── Helpers ────────────────────────────────────────────────────────────────
+
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' \
+    | tr -d '\n\r'
+}
+
+emit_audit() {
+  local line="$1" dir
+  dir="$(dirname "$AUDIT_LOG")"
+  # Fail-soft on the audit write only. A locked or full log must not block a
+  # push whose verdict is already on stderr -- the audit trail is forensic
+  # follow-up, not the control itself. The verdict path above is fail-closed.
+  if [[ -d "$dir" && -w "$dir" ]] || [[ -w "$AUDIT_LOG" ]]; then
+    printf '%s\n' "$line" >> "$AUDIT_LOG" 2>/dev/null || true
+  fi
+}
+
+extract_bypass_reason() {
+  # Only the HEAD commit of the pushed range counts. A bypass buried in a
+  # middle commit would let every later commit inherit it silently; putting it
+  # on the tip forces the operator to place it deliberately.
+  local commit="$1" message reason candidate
+  message="$(git log -1 --format=%B "$commit" 2>/dev/null || true)"
+  # `|| true` matters: with pipefail set, a message without the tag makes the
+  # pipeline exit non-zero, and an unguarded assignment would abort the hook --
+  # which under a fail-closed policy would refuse every ordinary push.
+  reason="$(printf '%s\n' "$message" \
+    | grep -oE '\[ALLOW-DESTRUCTIVE:[[:space:]]*[a-z-]+\]' \
+    | head -n1 \
+    | sed -E 's/^\[ALLOW-DESTRUCTIVE:[[:space:]]*([a-z-]+)\]$/\1/' || true)"
+  [[ -z "$reason" ]] && return 0
+  for candidate in $BYPASS_VOCABULARY; do
+    if [[ "$reason" == "$candidate" ]]; then
+      printf '%s' "$reason"
+      return 0
+    fi
+  done
+  # A tag with an unlisted value is not a partial bypass. It is no bypass.
+  return 0
+}
+
+matches_protected_glob() {
+  local file="$1" pattern
+  for pattern in $PROTECTED_GLOBS; do
+    # shellcheck disable=SC2053
+    [[ "$file" == $pattern ]] && return 0
+  done
+  return 1
+}
+
+is_protected_file() {
+  local file="$1" protected
+  for protected in $PROTECTED_FILES; do
+    [[ "$file" == "$protected" ]] && return 0
+  done
+  return 1
+}
+
+is_protected_ref() {
+  local ref="$1" protected
+  for protected in $PROTECTED_REFS; do
+    [[ "$ref" == "$protected" ]] && return 0
+  done
+  return 1
+}
+
+reject_diagnostics() {
+  local trigger="$1" detail="$2"
+  cat >&2 <<EOF
+==================================================================
+REFUSED · L4 destructive-change guard
+==================================================================
+Trigger : $trigger
+Detail  : $detail
+
+What to do:
+
+  1. If the deletion is unintended -- and it usually is -- this hook just
+     saved you. Inspect the push:
+         git diff --stat <remote>/<branch>..HEAD
+
+  2. If it is intended, split the push. Non-destructive commits first, the
+     destructive part as its own commit carrying the tag below.
+
+  3. Tag the HEAD commit message of the destructive commit:
+
+         [ALLOW-DESTRUCTIVE: <reason>]
+
+     Permitted values, mutually exclusive:
+         repo-restructure    directory layout change, mass move plus adds
+         legacy-cleanup      removal of documented, obsolete files
+         branch-rebase       deliberate history rewrite on a working branch
+         archive-migration   content moved to an archive repository
+
+     Free text is refused on purpose. A vocabulary forces you to classify,
+     and a classified audit trail is one you can read a year later.
+
+This guard protects:
+  - paths matching : $PROTECTED_GLOBS
+  - files          : $PROTECTED_FILES
+  - refs           : $PROTECTED_REFS (against deletion)
+  - net deletion   : more than $DELETION_THRESHOLD lines in one push
+
+Audit log: $AUDIT_LOG
+==================================================================
+EOF
+}
+
+# ── Main loop ──────────────────────────────────────────────────────────────
+
+overall_exit=0
+repo_name="$(basename "$(pwd)" .git)"
+
+while read -r old_sha new_sha ref_name; do
+  [[ -z "${ref_name:-}" ]] && continue
+
+  triggers=()
+  net_deletion=0
+  lines_deleted=0
+  files_deleted=0
+  glob_deleted=0
+  protected_deleted=0
+  head_for_bypass="$new_sha"
+
+  if [[ "$new_sha" == "$ZERO_SHA" ]]; then
+    # Ref deletion. The source design left this to a forge's branch-protection
+    # UI. A baseline cannot assume a forge has one, so it is a trigger here.
+    if is_protected_ref "$ref_name"; then
+      triggers+=(protected-ref-delete)
+    fi
+    head_for_bypass="$old_sha"
+  elif [[ "$old_sha" == "$ZERO_SHA" ]]; then
+    # Branch or tag creation is purely additive. Nothing destructive to score.
+    :
+  else
+    shortstat="$(git diff --shortstat "$old_sha" "$new_sha" 2>/dev/null || true)"
+    insertions="$(printf '%s' "$shortstat" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || true)"
+    deletions="$(printf '%s' "$shortstat" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || true)"
+    insertions="${insertions:-0}"
+    lines_deleted="${deletions:-0}"
+
+    # Net, not gross. A restructure deletes and inserts in equal measure and
+    # must not trip; a mass deletion deletes and inserts almost nothing.
+    net_deletion=$(( lines_deleted - insertions ))
+    (( net_deletion < 0 )) && net_deletion=0
+
+    while IFS= read -r file; do
+      [[ -z "$file" ]] && continue
+      files_deleted=$(( files_deleted + 1 ))
+      matches_protected_glob "$file" && glob_deleted=$(( glob_deleted + 1 ))
+      is_protected_file "$file" && protected_deleted=$(( protected_deleted + 1 ))
+    done < <(git diff --name-only --diff-filter=D "$old_sha" "$new_sha" 2>/dev/null || true)
+
+    (( net_deletion > DELETION_THRESHOLD )) && triggers+=(deletion-threshold)
+    (( glob_deleted > 0 ))                  && triggers+=(protected-path-delete)
+    (( protected_deleted > 0 ))             && triggers+=(protected-file-delete)
+  fi
+
+  timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  signer="$(git log -1 --format=%GK "$head_for_bypass" 2>/dev/null || echo "")"
+  author="$(git log -1 --format='%an' "$head_for_bypass" 2>/dev/null || echo "")"
+
+  if (( ${#triggers[@]} == 0 )); then
+    decision="pass"
+    trigger_reason="none"
+    bypass_json="null"
+  else
+    trigger_reason="$(IFS='+'; printf '%s' "${triggers[*]}")"
+    bypass_value="$(extract_bypass_reason "$head_for_bypass")"
+    if [[ -n "$bypass_value" ]]; then
+      decision="bypass"
+      bypass_json="\"$(json_escape "$bypass_value")\""
+    else
+      decision="reject"
+      bypass_json="null"
+    fi
+  fi
+
+  emit_audit "{\"ts\":\"$timestamp\",\"hook_version\":\"$HOOK_VERSION\",\"repo\":\"$(json_escape "$repo_name")\",\"ref\":\"$(json_escape "$ref_name")\",\"old_sha\":\"$old_sha\",\"new_sha\":\"$new_sha\",\"signer_keyid\":\"$(json_escape "$signer")\",\"author\":\"$(json_escape "$author")\",\"decision\":\"$decision\",\"trigger_reason\":\"$trigger_reason\",\"bypass_reason\":$bypass_json,\"files_deleted\":$files_deleted,\"lines_deleted\":$lines_deleted,\"net_deletion\":$net_deletion,\"protected_path_deletes\":$glob_deleted,\"protected_file_deletes\":$protected_deleted,\"deletion_threshold\":$DELETION_THRESHOLD}"
+
+  case "$decision" in
+    reject)
+      reject_diagnostics "$trigger_reason" \
+        "ref=$ref_name net_deletion=$net_deletion (limit $DELETION_THRESHOLD) protected_paths=$glob_deleted protected_files=$protected_deleted files_deleted=$files_deleted"
+      overall_exit=1
+      ;;
+    bypass)
+      printf '[L4] %s: destructive push accepted under [ALLOW-DESTRUCTIVE: %s] — audited\n' \
+        "$ref_name" "$bypass_value" >&2
+      ;;
+  esac
+done
+
+exit "$overall_exit"
