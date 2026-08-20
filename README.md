@@ -128,6 +128,64 @@ What it does is make a specific set of failures loud: content that arrives
 poisoned, output that carries something it should not, a review that never
 happened, a push that destroys history, a deploy that broke and stayed broken.
 
+## What you get, what you bring
+
+![What the repository ships versus what you provide](docs/assets/what-you-bring.svg)
+
+| You need | For | Notes |
+|---|---|---|
+| python3 + POSIX shell | everything | no packages, no virtualenv, no registry |
+| git | L1, L2 | both install their guards as git hooks |
+| a git server you control | L4 | **not github.com** — it cannot run pre-receive hooks |
+| a model endpoint | L3 | ollama or OpenAI-compatible, in a different model family than the one writing your code |
+| a deploy target ≠ dev host | L5 | the validator refuses a target pointing at localhost |
+| node.js | the example only | nothing in the pipeline itself needs it |
+
+Turn a layer off in `inventory.yaml` and its requirement disappears with it. L0
+needs nothing at all, which is why it cannot be switched off.
+
+**About the model.** L3 is the only layer that needs one, and it is the layer
+where the requirement is a property rather than a product: the reviewer must not
+share a model family with whatever wrote the code, because the same weights
+reviewing themselves produce a self-check with correlated blind spots. A small
+local model is enough and is the better choice for a second reason — your source
+code never has to leave the building to be reviewed. `provider: offline` exists
+so the acceptance run works before you have any model at all; it returns a canned
+verdict, and the run says so rather than letting a green token imply a review
+happened.
+
+## How do we know it works?
+
+Fair question, and the honest answer has two halves.
+
+**What is demonstrated.** Run `./tools/run-probes.sh` and you get 87 cases across
+all six layers plus the bootstrap. Most of them assert a *refusal*, which is the
+half that matters: a collapsed separation, a token spent on the wrong commit, an
+edited reviewer prompt, a push deleting decision records, a rewritten ledger
+entry. They build throwaway repositories in a temp directory and touch nothing of
+yours. The example service is driven through the full sequence — verify,
+snapshot, deploy, smoke — and then through the failure path, where the smoke test
+fails on purpose, the rollback restores the snapshot, and both events land in a
+hash chain that `ledger.py verify` rejects if anyone edits it afterwards.
+
+**What is not.** The probes were written alongside the code they test, so they
+prove internal consistency, not correctness against an adversary who did not
+write them. Beyond that, three things are shipped but unproven in the field:
+
+- **The reviewer's model backends.** `ollama` and `openai-compat` are
+  implemented, but every run so far used `provider: offline`. The gate mechanics
+  are exercised; the HTTP path to a real model is not.
+- **The pre-receive hook against a live forge.** Its 14 probes run against
+  throwaway bare repositories. Installing it on a running git server is a step
+  nobody has taken here yet.
+- **Remote deploy.** `--remote` prints a plan and stops. Shipping a script that
+  ssh-es into a host it has never seen, using a service manager it cannot know,
+  and calls the result a deploy would be worse than shipping nothing.
+
+None of that is hidden in a changelog. It is here, in the README, because a
+baseline whose subject is where guarantees stop should be the last thing to
+overstate its own.
+
 ## Sixty seconds, no infrastructure
 
 The governance spine needs nothing but a shell:

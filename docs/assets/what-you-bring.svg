@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="1200" height="560" role="img" aria-label="What the repository ships versus what you provide">
+  <rect width="1200" height="560" fill="#0d1117"/>
+
+  <text x="600" y="52" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" font-weight="700" fill="#e6edf3">what you get · what you bring</text>
+  <text x="600" y="76" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#8b949e">L0 needs nothing at all. Every further layer assumes one more thing about your infrastructure.</text>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <rect x="60" y="108" width="520" height="392" rx="8" fill="#0f1720" stroke="#238636" stroke-width="1.5"/>
+    <rect x="60" y="108" width="520" height="38" rx="8" fill="#132b1c"/>
+    <rect x="60" y="138" width="520" height="8" fill="#0f1720"/>
+    <text x="84" y="134" font-size="14" font-weight="700" fill="#3fb950">SHIPS WITH THE REPOSITORY</text>
+
+    <text x="84" y="184" font-size="12" fill="#e6edf3">L0  decision records, schema, lint, conventions</text>
+    <text x="84" y="212" font-size="12" fill="#e6edf3">L1  scanner, pattern library, 3 git hooks, wrapper</text>
+    <text x="84" y="240" font-size="12" fill="#e6edf3">L2  6 stage manifests, GO token, pre-push hook</text>
+    <text x="84" y="268" font-size="12" fill="#e6edf3">L3  reviewer service, 7 disciplines, hash verify</text>
+    <text x="84" y="296" font-size="12" fill="#e6edf3">L4  pre-receive guard, config, remote installer</text>
+    <text x="84" y="324" font-size="12" fill="#e6edf3">L5  deploy sequence, hash-chained ledger</text>
+
+    <line x1="84" y1="348" x2="556" y2="348" stroke="#21262d" stroke-width="1"/>
+
+    <text x="84" y="378" font-size="12" fill="#e6edf3">bootstrap questionnaire · 3 profiles · dry-run</text>
+    <text x="84" y="406" font-size="12" fill="#e6edf3">87 probes, most of them asserting a refusal</text>
+    <text x="84" y="434" font-size="12" fill="#e6edf3">hello-world service, driven end to end as proof</text>
+    <text x="84" y="462" font-size="12" fill="#e6edf3">leak sweep, run before every handover</text>
+
+    <text x="84" y="490" font-size="11" fill="#6e7681">python standard library and POSIX shell only</text>
+  </g>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+    <rect x="620" y="108" width="520" height="392" rx="8" fill="#1a1410" stroke="#9e6a03" stroke-width="1.5"/>
+    <rect x="620" y="108" width="520" height="38" rx="8" fill="#2b1f0b"/>
+    <rect x="620" y="138" width="520" height="8" fill="#1a1410"/>
+    <text x="644" y="134" font-size="14" font-weight="700" fill="#d29922">YOU PROVIDE</text>
+
+    <text x="644" y="184" font-size="12" fill="#e6edf3">python3 and a POSIX shell</text>
+    <text x="664" y="202" font-size="11" fill="#8b949e">required for everything</text>
+
+    <text x="644" y="234" font-size="12" fill="#e6edf3">git</text>
+    <text x="664" y="252" font-size="11" fill="#8b949e">L1 and L2 install their guards as git hooks</text>
+
+    <text x="644" y="284" font-size="12" fill="#e6edf3">a git server you control</text>
+    <text x="664" y="302" font-size="11" fill="#8b949e">L4 · not github.com — it cannot run pre-receive</text>
+
+    <text x="644" y="334" font-size="12" fill="#e6edf3">a model endpoint</text>
+    <text x="664" y="352" font-size="11" fill="#8b949e">L3 · ollama or OpenAI-compatible, and a different</text>
+    <text x="664" y="368" font-size="11" fill="#8b949e">model family than the one writing your code</text>
+
+    <text x="644" y="400" font-size="12" fill="#e6edf3">a deploy target that is not your dev host</text>
+    <text x="664" y="418" font-size="11" fill="#8b949e">L5 · the validator refuses localhost here</text>
+
+    <text x="644" y="450" font-size="12" fill="#e6edf3">node.js</text>
+    <text x="664" y="468" font-size="11" fill="#8b949e">only to run the bundled example</text>
+
+    <text x="644" y="490" font-size="11" fill="#6e7681">turn a layer off and its requirement disappears with it</text>
+  </g>
+
+  <text x="600" y="534" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6e7681">no package registry · no SaaS · no account anywhere</text>
+</svg>
