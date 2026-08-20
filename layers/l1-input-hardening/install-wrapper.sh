@@ -28,7 +28,8 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WRAPPER="$HERE/agent-safe"
 
-AGENT=""
+AGENTS=""
+FROM_FILE=""
 PREFIX=""
 DRY_RUN=0
 UNINSTALL=0
@@ -41,7 +42,8 @@ usage() {
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --agent)     AGENT="${2:?--agent needs a name or path}"; shift 2 ;;
+    --agent)     AGENTS="$AGENTS ${2:?--agent needs a name or path}"; shift 2 ;;
+    --from-file) FROM_FILE="${2:?--from-file needs a path}"; shift 2 ;;
     --prefix)    PREFIX="${2:?--prefix needs a directory}"; shift 2 ;;
     --dry-run)   DRY_RUN=1; shift ;;
     --uninstall) UNINSTALL=1; shift ;;
@@ -81,7 +83,43 @@ if [ "$STATUS" = "1" ]; then
   exit 0
 fi
 
-[ -n "$AGENT" ] || die "which agent? pass --agent <name-or-path>  (or --status)"
+# A fleet is installed the same way one agent is, just repeatedly. --from-file
+# takes one name or path per line, '#' comments and blank lines ignored, so the
+# list can come out of whatever inventory you already keep.
+if [ -n "$FROM_FILE" ]; then
+  [ -f "$FROM_FILE" ] || die "no such file: $FROM_FILE"
+  while IFS= read -r _line || [ -n "$_line" ]; do
+    _line="${_line%%#*}"
+    _line="$(printf '%s' "$_line" | tr -d '[:space:]')"
+    [ -n "$_line" ] && AGENTS="$AGENTS $_line"
+  done < "$FROM_FILE"
+fi
+
+AGENTS="$(printf '%s' "$AGENTS" | sed 's/^ *//')"
+[ -n "$AGENTS" ] || die "which agent? pass --agent <name-or-path>, --from-file <list>,
+     or --status"
+
+# More than one: recurse per agent so that a single failure does not abandon the
+# rest half-done, and report a summary. Exit non-zero if any of them failed.
+_count="$(printf '%s\n' $AGENTS | wc -l | tr -d ' ')"
+if [ "$_count" -gt 1 ]; then
+  _ok=0; _failed=""
+  for _one in $AGENTS; do
+    printf '\n'
+    if "$0" --agent "$_one" ${PREFIX:+--prefix "$PREFIX"} \
+         $([ "$DRY_RUN" = "1" ] && echo --dry-run) \
+         $([ "$UNINSTALL" = "1" ] && echo --uninstall); then
+      _ok=$((_ok + 1))
+    else
+      _failed="$_failed $_one"
+    fi
+  done
+  printf '\n[L1] %s of %s agents done\n' "$_ok" "$_count"
+  [ -n "$_failed" ] && { printf '[L1] failed:%s\n' "$_failed" >&2; exit 1; }
+  exit 0
+fi
+
+AGENT="$AGENTS"
 
 # Resolve the agent to an absolute path. A bare name is looked up on PATH, but
 # never through the wrapper itself -- otherwise a second run would wrap the
