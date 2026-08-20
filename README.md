@@ -21,6 +21,98 @@ demonstrates the happy path teaches the wrong half.
 > home is a self-hosted forge for exactly that reason, and the GitHub copy is a
 > published mirror.
 
+## How it fits together
+
+Content enters from the left, code leaves to the right, and every box between
+them can say no. The layers are the gates; each one refuses independently, and
+none of them trusts that the previous one did its job.
+
+```mermaid
+flowchart LR
+    subgraph untrusted["untrusted input"]
+        PULL["git pull<br/>issues, docs, deps"]
+    end
+
+    subgraph dev["dev host"]
+        L1["L1 · sanitize<br/>bidi, zero-width,<br/>homoglyphs, patterns"]
+        AGENT["coding agent<br/>behind agent-safe"]
+        L2["L2 · output gate<br/>S0 assembly → S1 hardlint<br/>S2 re-sanitize → S3 tripwire<br/>S4 review → S5 decision"]
+        TOKEN{"GO token<br/>bound to commit<br/>+ content, TTL"}
+        PP["pre-push hook<br/>spends the token"]
+    end
+
+    subgraph reviewer["reviewer role"]
+        L3["L3 · reviewer service<br/>7 disciplines<br/>apparatus hash-verified"]
+    end
+
+    subgraph gitsrv["git role · not the dev host"]
+        L4["L4 · pre-receive<br/>destructive-push guard<br/>fails closed"]
+        REPO[("bare repository")]
+    end
+
+    subgraph target["targets role · not the dev host"]
+        L5["L5 · deploy<br/>verify → snapshot → deploy<br/>→ smoke → rollback"]
+        SVC["running service"]
+    end
+
+    LEDGER[("hash-chained<br/>ledger")]
+
+    PULL -->|"post-merge<br/>post-checkout<br/>post-rewrite"| L1
+    L1 -->|"pass"| AGENT
+    L1 -.->|"reject"| STOP1(["refused"])
+    AGENT --> L2
+    L2 -->|"bundle"| L3
+    L3 -->|"verdict"| L2
+    L2 -->|"GO"| TOKEN
+    L2 -.->|"NO-GO"| STOP2(["no token issued"])
+    TOKEN --> PP
+    PP -->|"git push"| L4
+    L4 -->|"accept"| REPO
+    L4 -.->|"refuse"| STOP3(["push rejected"])
+    REPO --> L5
+    L5 -->|"smoke ok"| SVC
+    L5 -.->|"smoke fails"| ROLL(["rollback to snapshot"])
+    L5 --> LEDGER
+```
+
+**L0 sits underneath all of it** and needs no infrastructure at all: the decision
+records, the schema, the index, the append-only amendment protocol, and the
+commit convention. It is the only layer that cannot be switched off, because it
+is the one that leaves a trace of *why* the rest looks the way it does.
+
+Three of the boundaries above carry the security property. The rest is
+preference:
+
+```mermaid
+flowchart TB
+    DEV["dev<br/>writes code<br/>author model"]
+    GIT["git<br/>evaluates pushes"]
+    REV["reviewer<br/>second opinion<br/>different model family"]
+    TGT["targets<br/>runs the service"]
+    SINK["sink<br/>audit trail"]
+    PROV["provisioner<br/>creates hosts"]
+
+    DEV ---|"must differ"| GIT
+    DEV ---|"must differ"| TGT
+    DEV ---|"weights must differ"| REV
+    DEV -.-|"may co-locate"| SINK
+    DEV -.-|"may co-locate"| PROV
+```
+
+- **git ≠ dev** — a dev host that owns the git server can remove the hook that
+  is supposed to constrain it.
+- **targets ≠ dev** — otherwise the hand that writes code reaches the running
+  service directly.
+- **reviewer model ≠ author model** — the same weights reviewing themselves is a
+  self-check with correlated blind spots. This one is about the model, not the
+  machine: a reviewer on the same host is still a second opinion.
+
+`python3 lib/inventory.py --validate` refuses an inventory that collapses any of
+the three, and the bootstrap will not proceed past a refusal. The reasoning —
+including which separations turned out *not* to be load-bearing, and why the
+reviewer one was originally got wrong — is in
+[ADR-0002](docs/adr/ADR-0002-role-model.md).
+
 ## What this is not
 
 It is not a framework, and there is nothing to import. It is not a CI template.
@@ -74,22 +166,6 @@ deliver. See [docs/bootstrap.md](docs/bootstrap.md).
 | L5 | Deploy + audit | a deploy target | a deploy whose smoke test fails — it rolls back |
 
 Details, guarantees and the negative probe for each: [docs/layers.md](docs/layers.md).
-
-## The three separations that carry the security property
-
-Everything else in the topology is preference. These three are not:
-
-- **git ≠ dev** — otherwise a compromised dev host removes the server-side hook
-  that is supposed to constrain it.
-- **targets ≠ dev** — otherwise the hand that writes code reaches the running
-  service directly, and the deployment boundary is decorative.
-- **reviewer model ≠ author model** — otherwise the review is a self-check with
-  the author's own blind spots. This one is about weights, not hosts: a reviewer
-  on the same machine is still a second opinion.
-
-`python3 lib/inventory.py --validate` refuses an inventory that collapses any of
-them, and the bootstrap will not proceed past a refusal. The reasoning is in
-[ADR-0002](docs/adr/ADR-0002-role-model.md).
 
 ## Known limits
 
