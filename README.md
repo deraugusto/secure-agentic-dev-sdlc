@@ -1,3 +1,5 @@
+![agentic-sdlc-baseline — six layers, each one able to refuse independently](docs/assets/header.svg)
+
 # agentic-sdlc-baseline
 
 A complete lifecycle for code written by an agent: a decision is recorded, code
