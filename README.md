@@ -244,6 +244,24 @@ That checks every decision record against the schema, the index, and the
 append-only amendment protocol. If you only want the workflow, you are done —
 clone it and go.
 
+## A suggestion about getting it running
+
+Setting this up is a series of decisions rather than a series of commands: which
+layers you want, which model reviews, which separations your topology can
+actually keep, what counts as a destructive push in your repository. The
+documentation explains each one, and it is a lot of reading for a first
+afternoon.
+
+**If you have a coding agent, point it at this repository.** It can read the
+layer reference, run the probes, walk through the bootstrap questionnaire with
+you and explain each refusal you hit. That is a slightly circular way to install
+the machinery that constrains agents — and it is also the fastest way through,
+which is why it is worth saying out loud rather than leaving as an in-joke.
+
+The circularity is not accidental. Most of this repository was written by an
+agent working under an earlier version of these same layers, which is where a
+fair number of its refusals come from: they caught something.
+
 ## The full bootstrap
 
 ```sh
