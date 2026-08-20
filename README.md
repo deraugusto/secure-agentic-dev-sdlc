@@ -134,7 +134,7 @@ happened, a push that destroys history, a deploy that broke and stayed broken.
 
 | You need | For | Notes |
 |---|---|---|
-| python3 + POSIX shell | everything | no packages, no virtualenv, no registry |
+| python3 ≥ 3.8 + bash ≥ 3.2 | everything | no packages, no virtualenv, no registry |
 | git | L1, L2 | both install their guards as git hooks |
 | a git server you control | L4 | **not github.com** — it cannot run pre-receive hooks |
 | a model endpoint | L3 | ollama or OpenAI-compatible, in a different model family than the one writing your code |
@@ -143,6 +143,14 @@ happened, a push that destroys history, a deploy that broke and stayed broken.
 
 Turn a layer off in `inventory.yaml` and its requirement disappears with it. L0
 needs nothing at all, which is why it cannot be switched off.
+
+**Portability.** Python 3.8 is the floor — verified by parsing every module
+against that grammar, not by assuming it. The shell scripts avoid bash 4
+constructs so that macOS's bash 3.2 is enough, and hashing goes through
+`sha256sum` or, where that is absent as on macOS, `shasum -a 256`; both produce
+byte-identical seals. What has actually been *executed* is Linux with Python
+3.11 and bash 5. The macOS path is verified by construction and by a
+`shasum`-only run, not by a full suite on a Mac.
 
 **About the model.** L3 is the only layer that needs one, and it is the layer
 where the requirement is a property rather than a product: the reviewer must not

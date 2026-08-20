@@ -197,7 +197,14 @@ setup_repo
 printf 'AUDIT_LOG=%s\n' "$AUDIT" >> "$BARE/hooks/pre-receive.conf"
 # Injected at the top, not appended: bash reads a script incrementally, so
 # garbage after the final `exit` never gets parsed and would prove nothing.
-sed -i '1a this-is-not-valid-bash (((' "$BARE/hooks/pre-receive"
+# Insert on line 2 without sed -i: the `1a` form is GNU-only and BSD sed
+# needs a different spelling, so neither is portable enough to rely on.
+{ head -1 "$BARE/hooks/pre-receive"
+  printf 'this-is-not-valid-bash (((\n'
+  tail -n +2 "$BARE/hooks/pre-receive"
+} > "$BARE/hooks/pre-receive.tmp"
+mv "$BARE/hooks/pre-receive.tmp" "$BARE/hooks/pre-receive"
+chmod 0755 "$BARE/hooks/pre-receive"
 (
   cd "$CLONE"
   printf 'another line\n' >> src/notes.txt

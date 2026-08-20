@@ -16,6 +16,17 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 VERBOSE=0
+# macOS ships `shasum` instead of `sha256sum`. A baseline that claims to be
+# portable should not require the recipient to install coreutils before it can
+# verify its own integrity.
+if command -v sha256sum >/dev/null 2>&1; then
+  SHA256="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+  SHA256="shasum -a 256"
+else
+  echo "neither sha256sum nor shasum found — cannot verify hashes" >&2
+  exit 1
+fi
 [ "${1:-}" = "-v" ] && VERBOSE=1
 
 PASS=0
@@ -145,10 +156,10 @@ esac
 printf '\n── dry run · must not touch anything ──\n\n'
 
 _dir="$(new_sandbox dryrun-clean)"
-_before="$( cd "$_dir" && find . -type f -exec sha256sum {} \; | sort | sha256sum )"
+_before="$( cd "$_dir" && find . -type f -exec $SHA256 {} \; | sort | $SHA256 )"
 ( cd "$_dir" && ./bootstrap/init.sh --non-interactive --dry-run \
     --answers "$HERE/acceptance.answers" >/dev/null 2>&1 )
-_after="$( cd "$_dir" && find . -type f -exec sha256sum {} \; | sort | sha256sum )"
+_after="$( cd "$_dir" && find . -type f -exec $SHA256 {} \; | sort | $SHA256 )"
 if [ "$_before" = "$_after" ]; then
   report PASS dry-run-changes-nothing "tree hash unchanged"
 else

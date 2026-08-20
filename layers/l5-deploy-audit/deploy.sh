@@ -30,6 +30,18 @@ DEPLOY_ROOT="$STATE_DIR/deploy"
 SNAPSHOT_ROOT="$STATE_DIR/snapshots"
 LEDGER="$REPO_ROOT/layers/l5-deploy-audit/ledger.py"
 INVENTORY="$REPO_ROOT/lib/inventory.py"
+# macOS ships `shasum` instead of `sha256sum`. A baseline that claims to be
+# portable should not require the recipient to install coreutils before it can
+# verify its own integrity.
+if command -v sha256sum >/dev/null 2>&1; then
+  SHA256="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+  SHA256="shasum -a 256"
+else
+  echo "neither sha256sum nor shasum found — cannot verify hashes" >&2
+  exit 1
+fi
+
 
 TARGET=""
 MODE=""
@@ -236,7 +248,7 @@ if [[ ! -d "$SOURCE_DIR" ]]; then
 fi
 
 artifact_hash="$( cd "$SOURCE_DIR" && find . -type f ! -name '*.log' -print0 \
-  | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}' )"
+  | sort -z | xargs -0 $SHA256 | $SHA256 | awk '{print $1}' )"
 say "verify: artifact sha256 ${artifact_hash:0:16}…"
 
 signature_state="unverified"

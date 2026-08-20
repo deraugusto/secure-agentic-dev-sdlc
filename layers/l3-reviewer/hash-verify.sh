@@ -16,6 +16,18 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECKSUMS="$HERE/checksums.txt"
+# macOS ships `shasum` instead of `sha256sum`. A baseline that claims to be
+# portable should not require the recipient to install coreutils before it can
+# verify its own integrity.
+if command -v sha256sum >/dev/null 2>&1; then
+  SHA256="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then
+  SHA256="shasum -a 256"
+else
+  echo "neither sha256sum nor shasum found — cannot verify hashes" >&2
+  exit 1
+fi
+
 APPARATUS=(reviewer_service.py backends.py system-prompt.md bundle-schema.json)
 
 if [[ "${1:-}" == "--seal" ]]; then
@@ -26,7 +38,7 @@ if [[ "${1:-}" == "--seal" ]]; then
       rm -f "$CHECKSUMS.tmp"
       exit 1
     fi
-    ( cd "$HERE" && sha256sum "$file" ) >> "$CHECKSUMS.tmp"
+    ( cd "$HERE" && $SHA256 "$file" ) >> "$CHECKSUMS.tmp"
   done
   mv "$CHECKSUMS.tmp" "$CHECKSUMS"
   echo "sealed $CHECKSUMS"
@@ -52,7 +64,7 @@ for file in "${APPARATUS[@]}"; do
     failed=1
     continue
   fi
-  actual="$( cd "$HERE" && sha256sum "$file" | awk '{print $1}' )"
+  actual="$( cd "$HERE" && $SHA256 "$file" | awk '{print $1}' )"
   if [[ "$actual" != "$expected" ]]; then
     echo "hash-verify: FAIL apparatus-hash-mismatch:$file" >&2
     failed=1
