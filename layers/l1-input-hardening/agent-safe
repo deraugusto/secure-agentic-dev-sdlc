@@ -38,18 +38,47 @@ if [[ ! -x "$SDLC_AGENT_BIN" ]]; then
   exit 2
 fi
 
+# Two different questions, and conflating them is what stops this scaling:
+#
+#   WHERE IS THE SCANNER   next to this script, wherever the baseline is
+#                          installed. One installation serves every project.
+#   WHAT GETS SCANNED      the working copy you are pointing the agent at.
+#
+# Resolving the scanner relative to the target used to mean every project
+# needed its own copy of the baseline. It is resolved relative to this script
+# instead, which is normally reached through a symlink -- so the link has to be
+# followed, without readlink -f, which macOS does not have.
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _target="$(readlink "$_self")"
+  case "$_target" in
+    /*) _self="$_target" ;;
+    *)  _self="$(cd "$(dirname "$_self")" && pwd)/$_target" ;;
+  esac
+done
+BASELINE="$(cd "$(dirname "$_self")" && pwd)"
+SCANNER="$BASELINE/sanitize.py"
+
+# What to scan: an explicit override, else the enclosing git repository, else
+# the current directory.
 REPO="${SDLC_REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
-SCANNER="$REPO/layers/l1-input-hardening/sanitize.py"
 
 if [[ ! -f "$SCANNER" ]]; then
   # Fail closed. A wrapper that silently degrades to a plain exec when its
   # scanner is missing is worse than no wrapper: it looks like protection.
   echo "[agent-safe] scanner not found at $SCANNER — refusing to run unscanned." >&2
+  echo "[agent-safe] this wrapper resolves the scanner next to itself; if you" >&2
+  echo "[agent-safe] copied agent-safe out of the baseline, symlink it instead." >&2
   exit 1
 fi
 
 # ── Stage 1 · scan ─────────────────────────────────────────────────────────
-if ! ( cd "$REPO" && python3 "$SCANNER" --trigger pre-agent-invoke --full ); then
+# SDLC_REPO_ROOT must be passed explicitly. The scanner otherwise derives its
+# root from its own location, which -- now that the scanner lives with the
+# baseline rather than with the project -- would scan the baseline and report
+# the target as clean. That failure is silent and looks exactly like a pass.
+if ! ( cd "$REPO" && SDLC_REPO_ROOT="$REPO" \
+       python3 "$SCANNER" --trigger pre-agent-invoke --full ); then
   echo "[agent-safe] L1 REJECT — agent invocation aborted." >&2
   exit 1
 fi

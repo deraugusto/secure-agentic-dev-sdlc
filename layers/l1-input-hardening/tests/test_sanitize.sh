@@ -151,16 +151,69 @@ else
   report FAIL wrapper-without-agent-refuses "guessed, or failed silently"
 fi
 
+# The wrapper resolves its scanner next to itself, so the way to lose it is to
+# copy agent-safe out of the baseline instead of symlinking it. That must fail
+# closed: a wrapper that execs the agent because it cannot find its own scanner
+# is worse than no wrapper, since it still looks like protection.
 _dir="$WORK/noscanner"
 mkdir -p "$_dir"
+cp "$LAYER/agent-safe" "$_dir/agent-safe"
+chmod +x "$_dir/agent-safe"
 printf '#!/bin/sh\necho ran\n' > "$_dir/fake-agent"
 chmod +x "$_dir/fake-agent"
-_out="$( SDLC_AGENT_BIN="$_dir/fake-agent" SDLC_REPO_ROOT="$_dir" \
-         "$LAYER/agent-safe" 2>&1 )"
+_out="$( SDLC_AGENT_BIN="$_dir/fake-agent" "$_dir/agent-safe" 2>&1 )"
 if [ $? -ne 0 ] && ! printf '%s' "$_out" | grep -q "^ran$"; then
-  report PASS wrapper-without-scanner-refuses "did not exec the agent unscanned"
+  report PASS wrapper-without-scanner-refuses "a copied-out wrapper refuses"
 else
   report FAIL wrapper-without-scanner-refuses "ran the agent with no scanner present"
+fi
+if printf '%s' "$_out" | grep -q "symlink it instead"; then
+  report PASS wrapper-explains-the-fix "told the operator to symlink instead of copy"
+else
+  report FAIL wrapper-explains-the-fix "refused without saying how to fix it"
+fi
+
+printf '\n── one baseline, many projects ──\n\n'
+
+# The wrapper has to resolve its scanner next to itself and scan the project it
+# is pointed at. Getting that backwards means one copy of the baseline per
+# project -- and worse, a version that scans the baseline instead of the target
+# reports clean and runs the agent anyway. That failure is silent.
+_proj="$WORK/foreign-project"
+mkdir -p "$_proj"
+( cd "$_proj" && git init -q . ) 2>/dev/null
+python3 -c "import sys; open(sys.argv[1],'w',encoding='utf-8').write('const a = 1; //' + chr(0x202E) + 'nedloh' + chr(0x202C) + chr(10))" \
+  "$_proj/hostile.js"
+
+_bin="$WORK/bin"
+mkdir -p "$_bin"
+printf '#!/bin/sh\necho AGENT-RAN\n' > "$_bin/fake-agent-real"
+chmod +x "$_bin/fake-agent-real"
+# Reached through a symlink, the way the installer sets it up.
+ln -sf "$LAYER/agent-safe" "$_bin/fake-agent"
+
+_out="$( cd "$_proj" && SDLC_AGENT_BIN="$_bin/fake-agent-real" \
+         "$_bin/fake-agent" 2>&1 )"
+_rc=$?
+if [ "$_rc" -ne 0 ] && ! printf '%s' "$_out" | grep -q "AGENT-RAN"; then
+  report PASS wrapper-scans-the-target "hostile file in another project blocked it"
+else
+  report FAIL wrapper-scans-the-target "the agent ran; the scan looked at the wrong tree"
+fi
+
+if printf '%s' "$_out" | grep -q "hostile.js"; then
+  report PASS wrapper-names-the-target-file "named the file in the project"
+else
+  report FAIL wrapper-names-the-target-file "rejected, but not because of the target"
+fi
+
+rm -f "$_proj/hostile.js"
+_out="$( cd "$_proj" && SDLC_AGENT_BIN="$_bin/fake-agent-real" \
+         "$_bin/fake-agent" 2>&1 )"
+if printf '%s' "$_out" | grep -q "AGENT-RAN"; then
+  report PASS wrapper-runs-on-clean-target "a clean project starts the agent"
+else
+  report FAIL wrapper-runs-on-clean-target "refused a clean project"
 fi
 
 printf '\n%s/%s PASS\n\n' "$PASS" "$((PASS+FAIL))"

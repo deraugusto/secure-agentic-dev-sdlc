@@ -166,7 +166,7 @@ happened.
 
 Fair question, and the honest answer has two halves.
 
-**What is demonstrated.** Run `./tools/run-probes.sh` and you get 101 cases across
+**What is demonstrated.** Run `./tools/run-probes.sh` and you get 105 cases across
 all six layers plus the bootstrap. Most of them assert a *refusal*, which is the
 half that matters: a collapsed separation, a token spent on the wrong commit, an
 edited reviewer prompt, a push deleting decision records, a rewritten ledger
@@ -251,10 +251,9 @@ The bootstrap installs the machinery. The loop you work in afterwards is five
 things, and only one of them is manual:
 
 ```sh
-# once: put your agent behind the wrapper, so nothing reads unscanned content
-sudo mv "$(command -v your-agent)" /usr/local/bin/your-agent-real
-sudo ln -s "$PWD/layers/l1-input-hardening/agent-safe" /usr/local/bin/your-agent
-export SDLC_AGENT_BIN=/usr/local/bin/your-agent-real
+# once: put an agent you already have behind the wrapper — one command
+./layers/l1-input-hardening/install-wrapper.sh --agent your-agent
+export SDLC_AGENT_BIN=/usr/local/bin/your-agent-real   # the installer prints this
 
 # once: keep the reviewer running, or the gate fails closed on every push
 sudo cp layers/l3-reviewer/reviewer.service.example /etc/systemd/system/sdlc-reviewer.service
@@ -276,6 +275,14 @@ Two things you must set for the guarantees to be real rather than nominal:
 separation is checked against what you *declare*; and your own tripwire canaries,
 because the shipped one is an example and a canary is worth what its obscurity
 is worth.
+
+**One installation serves every project.** The wrapper resolves its scanner next
+to itself, so the baseline can live once at `/opt/agentic-sdlc-baseline` and
+scan every repository on the machine — nothing is vendored into your projects.
+Adding an agent costs one `install-wrapper.sh` run, adding a project one
+`bootstrap/init.sh` run. The reviewer is the only thing that does not scale by
+repetition: it is roughly a hundred seconds per review on a small local model
+and serialises, which [docs/using-it.md](docs/using-it.md) addresses directly.
 
 **[docs/using-it.md](docs/using-it.md)** covers the whole loop, including a table
 of every refusal you can hit and what it means — in particular the distinction
@@ -318,13 +325,13 @@ Proves the machinery on a real service, end to end, with no dependencies beyond
 Node.js for the example itself:
 
 ```sh
-./tools/run-probes.sh                                      # 101 cases, all layers
+./tools/run-probes.sh                                      # 105 cases, all layers
 ./layers/l5-deploy-audit/deploy.sh --target hello-world --local
 SDLC_BREAK_SMOKE=1 ./layers/l5-deploy-audit/deploy.sh --target hello-world --local
 python3 layers/l5-deploy-audit/ledger.py verify
 ```
 
-`run-probes.sh` runs every layer's suite — 101 cases, and most of them assert a
+`run-probes.sh` runs every layer's suite — 105 cases, and most of them assert a
 **refusal**: a collapsed separation, a token spent on the wrong commit, an
 edited reviewer prompt, a push that deletes decision records, a rewritten
 ledger entry. Run one suite alone with `./tools/run-probes.sh l2`.
@@ -332,7 +339,7 @@ ledger entry. Run one suite alone with `./tools/run-probes.sh l2`.
 | Suite | Cases | Asserts |
 |---|---|---|
 | L0 | 9 | index drift, id mismatch, the amendment coupling |
-| L1 | 11 | bidi, zero-width, homoglyphs, an audited bypass, fail-closed patterns |
+| L1 | 15 | bidi, zero-width, homoglyphs, an audited bypass, fail-closed patterns, one baseline scanning another project |
 | L2 | 14 | no token, stale token, edited seal, expired TTL, edited manifest, a reviewer that is unreachable *and* one that answers with garbage |
 | L3 | 10 | edited apparatus, missing seal, the reviewer/author family check |
 | L3 backends | 10 | the real HTTP path: both protocols, plus 500, 401, timeout, malformed JSON, half a review |
