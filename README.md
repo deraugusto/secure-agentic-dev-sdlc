@@ -279,10 +279,20 @@ is worth.
 **One installation serves every project.** The wrapper resolves its scanner next
 to itself, so the baseline can live once at `/opt/agentic-sdlc-baseline` and
 scan every repository on the machine — nothing is vendored into your projects.
-Adding an agent costs one `install-wrapper.sh` run, adding a project one
-`bootstrap/init.sh` run. The reviewer is the only thing that does not scale by
-repetition: it is roughly a hundred seconds per review on a small local model
-and serialises, which [docs/using-it.md](docs/using-it.md) addresses directly.
+A fleet goes in with one command:
+
+```sh
+./layers/l1-input-hardening/install-wrapper.sh --from-file ~/agents.txt
+```
+
+Measured, so you can size it: the L1 scan costs 0.28 s cold and 0.09 s warm, the
+deterministic gate stages 0.04 s — both disappear into the noise at any fleet
+size. The review costs **104 s** and serialises, which makes it the only thing
+that needs planning: one reviewer handles about 276 reviews per eight-hour day,
+so a hundred agents pushing five times each needs roughly two. The gate runs per
+**push**, not per agent, so push frequency is the number that matters.
+[docs/using-it.md](docs/using-it.md) has the table and the honest gap — several
+model hosts means a load balancer you run, not code you get here.
 
 **[docs/using-it.md](docs/using-it.md)** covers the whole loop, including a table
 of every refusal you can hit and what it means — in particular the distinction

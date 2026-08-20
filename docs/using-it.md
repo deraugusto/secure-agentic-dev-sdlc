@@ -91,8 +91,19 @@ is taken, or if the directory is not writable, and it verifies the result rather
 than assuming it. The only thing it does not do is edit your shell profile; it
 prints the `export SDLC_AGENT_BIN=…` line and leaves the decision to you.
 
-Repeat per agent. Four agents means four runs, and `--status` lists what is
-wrapped.
+For a fleet, pass the list instead of repeating yourself:
+
+```sh
+./layers/l1-input-hardening/install-wrapper.sh --agent claude --agent aider
+./layers/l1-input-hardening/install-wrapper.sh --from-file ~/agents.txt --dry-run
+./layers/l1-input-hardening/install-wrapper.sh --from-file ~/agents.txt
+```
+
+`--from-file` takes one name or path per line and ignores blanks and `#`
+comments, so the list can come straight out of whatever inventory you already
+keep. Each agent is installed independently: one failure does not abandon the
+rest half-done, and the run ends with `N of M agents done` and a non-zero exit
+if any failed. `--status` lists everything currently wrapped.
 
 ## Scaling to more than one project
 
@@ -117,11 +128,50 @@ What scales how:
 | **another repository on the git server** | install the pre-receive hook there once |
 | **throughput** | this is the real limit — see below |
 
-**The reviewer is the bottleneck, not the machinery.** Everything except S4 is
-deterministic and takes milliseconds. A review on a small local model took a
-median of 104 seconds in our measurements, and the model serialises even though
-the service is threaded. Ten developers pushing at once will queue behind one
-another.
+### What it costs, measured
+
+Everything except the review is negligible, and it is worth having the numbers
+rather than an impression:
+
+| Step | Cost | Notes |
+|---|---|---|
+| L1 full scan | **0.28 s** cold, **0.09 s** warm | 74 files; a 5-minute cache means repeated agent invocations mostly hit it |
+| L2 stages S0–S3, S5 | **0.04 s** | deterministic, no network |
+| L2 stage S4 · the review | **104 s** median | qwen3:8b over Ollama, and it serialises |
+
+So the scanner and the gate disappear into the noise even at a hundred agents.
+The review does not.
+
+### A hundred agents
+
+One reviewer at 104 seconds handles about **276 reviews per eight-hour day**,
+serialised. Against that:
+
+| Fleet | Reviews/day | Model time | Reviewers needed |
+|---|---|---|---|
+| 10 agents × 5 pushes | 50 | 1.4 h | 0.2 |
+| 50 agents × 5 pushes | 250 | 7.2 h | 0.9 |
+| 100 agents × 5 pushes | 500 | 14.4 h | **1.8** |
+| 100 agents × 20 pushes | 2000 | 57.8 h | **7.2** |
+
+The number that matters is **pushes**, not agents. The gate runs per push, so a
+hundred agents that push twice a day are cheaper than five that push forty
+times.
+
+Two honest consequences at that size:
+
+- **You need reviewer capacity, and this repository does not provide it.** The
+  gate reads one endpoint from `inventory.yaml`. Several model hosts means a
+  load balancer in front of them, which is infrastructure you run, not code you
+  get here. That is a real gap for a fleet, and it is named rather than papered
+  over.
+- **Wrapper installation is per machine, not per agent.** A hundred agents on
+  four build hosts is four `--from-file` runs under whatever configuration
+  management you already use, not a hundred manual steps.
+
+What does **not** need to scale: L4 is one hook per repository on the git server
+and is indifferent to how many agents push through it. L0 has no runtime at all.
+L5 runs per deploy, not per push.
 
 If that becomes the constraint, in the order that costs least:
 
