@@ -194,5 +194,40 @@ else
   report FAIL missing-inventory-is-declared "silently skipped the target check"
 fi
 
+printf '\n── it must not damage what it does not own ──\n\n'
+
+# A deploy takes over a port. If something else is already listening there, the
+# only safe move is to stop: killing the holder would take out a service this
+# script knows nothing about, and deploying anyway would leave a smoke test
+# passing against the wrong process -- a false green in the one place a false
+# green must not happen.
+_port="$(python3 -c "
+import socket
+s = socket.socket(); s.bind(('127.0.0.1', 0))
+print(s.getsockname()[1]); s.close()")"
+python3 -m http.server "$_port" --bind 127.0.0.1 >/dev/null 2>&1 &
+_foreign=$!
+sleep 1.5
+
+if kill -0 "$_foreign" 2>/dev/null; then
+  _out="$(cd "$REPO_ROOT" && PORT="$_port" SDLC_INVENTORY="$INV" \
+          "$DEPLOY" --target hello-world --local 2>&1 || true)"
+
+  if printf '%s' "$_out" | grep -qi "still bound"; then
+    report PASS foreign-port-holder-stops-deploy "refused rather than taking the port"
+  else
+    report FAIL foreign-port-holder-stops-deploy "deployed over an unmanaged listener"
+  fi
+
+  if kill -0 "$_foreign" 2>/dev/null; then
+    report PASS foreign-process-survives "left the other service running"
+  else
+    report FAIL foreign-process-survives "killed a process it does not own"
+  fi
+  kill "$_foreign" 2>/dev/null
+else
+  report FAIL foreign-port-holder-stops-deploy "could not start the stand-in listener"
+fi
+
 printf '\n%s/%s PASS\n\n' "$PASS" "$((PASS+FAIL))"
 [ "$FAIL" -eq 0 ]

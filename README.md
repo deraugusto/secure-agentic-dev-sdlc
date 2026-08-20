@@ -181,7 +181,7 @@ happened.
 
 Fair question, and the honest answer has two halves.
 
-**What is demonstrated.** Run `./tools/run-probes.sh` and you get 111 cases across
+**What is demonstrated.** Run `./tools/run-probes.sh` and you get 113 cases across
 all six layers plus the bootstrap. Most of them assert a *refusal*, which is the
 half that matters: a collapsed separation, a token spent on the wrong commit, an
 edited reviewer prompt, a push deleting decision records, a rewritten ledger
@@ -379,13 +379,13 @@ Proves the machinery on a real service, end to end, with no dependencies beyond
 Node.js for the example itself:
 
 ```sh
-./tools/run-probes.sh                                      # 111 cases, all layers
+./tools/run-probes.sh                                      # 113 cases, all layers
 ./layers/l5-deploy-audit/deploy.sh --target hello-world --local
 SDLC_BREAK_SMOKE=1 ./layers/l5-deploy-audit/deploy.sh --target hello-world --local
 python3 layers/l5-deploy-audit/ledger.py verify
 ```
 
-`run-probes.sh` runs every layer's suite — 111 cases, and most of them assert a
+`run-probes.sh` runs every layer's suite — 113 cases, and most of them assert a
 **refusal**: a collapsed separation, a token spent on the wrong commit, an
 edited reviewer prompt, a push that deletes decision records, a rewritten
 ledger entry. Run one suite alone with `./tools/run-probes.sh l2`.
@@ -398,7 +398,7 @@ ledger entry. Run one suite alone with `./tools/run-probes.sh l2`.
 | L3 | 10 | edited apparatus, missing seal, the reviewer/author family check |
 | L3 backends | 10 | the real HTTP path: both protocols, plus 500, 401, timeout, malformed JSON, half a review |
 | L4 | 20 | mass delete, protected paths and refs, a broken hook failing closed, and never clobbering a forge's own hook |
-| L5 | 9 | edited, removed and re-hashed ledger entries; declared, undeclared and unverifiable targets |
+| L5 | 11 | edited, removed and re-hashed ledger entries; target declarations; refusing to take a port it does not own |
 | bootstrap | 24 | every collapsed separation, refusal to guess, dry-run purity, idempotence |
 
 The third line of the acceptance run is the one that matters: the smoke test
