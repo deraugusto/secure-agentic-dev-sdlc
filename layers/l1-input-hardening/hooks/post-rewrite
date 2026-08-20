@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# L1 · post-rewrite — after a rebase or an amend the working copy can differ
+# arbitrarily from what was last scanned, and the incremental path has no
+# reliable pair of revisions to diff. Full scan.
+set -uo pipefail
+
+REPO="$(git rev-parse --show-toplevel)"
+SCANNER="$REPO/layers/l1-input-hardening/sanitize.py"
+[[ -f "$SCANNER" ]] || exit 0
+
+cd "$REPO" || exit 0
+python3 "$SCANNER" --trigger post-git-rewrite --full

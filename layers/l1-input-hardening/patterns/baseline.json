@@ -1,0 +1,109 @@
+{
+  "_doc": [
+    "Pattern library for the L1 input hardening stage 6 scan.",
+    "",
+    "This is a starting set, written from public descriptions of the technique",
+    "classes. It is deliberately small: a pattern library is a maintenance",
+    "burden and a false-positive generator, and a large one that nobody tunes",
+    "is worse than a short one that gets read.",
+    "",
+    "Tune it. The file is yours after you clone. Adding a category is adding an",
+    "object to `categories`; the scanner needs no code change.",
+    "",
+    "action semantics:",
+    "  reject  the file is refused; the agent invocation aborts (exit 1)",
+    "  warn    recorded in the audit trail, the invocation proceeds",
+    "",
+    "applies_to is matched against the file class from stage 1: 'source' for",
+    "code and config, 'doc' for prose. Prose legitimately discusses these",
+    "techniques -- this document does -- so doc-class files warn where",
+    "source-class files reject."
+  ],
+  "version": 1,
+  "schema": "sdlc-baseline-patterns/1",
+  "categories": [
+    {
+      "name": "agent-instruction-injection",
+      "doc": "Prose shaped as an instruction to a reading agent rather than as content. The classic form of indirect prompt injection: text that arrives as data and is written to be read as a command.",
+      "applies_to": ["source", "doc"],
+      "action_source": "reject",
+      "action_doc": "warn",
+      "patterns": [
+        "(?i)ignore (?:all |any )?(?:previous|prior|above|preceding) (?:instructions|prompts|rules|directions)",
+        "(?i)disregard (?:all |any )?(?:previous|prior|above|earlier) (?:instructions|context|rules)",
+        "(?i)你(?:必须|应该)忽略(?:之前|以上)",
+        "(?i)</?(?:system|assistant|human)>\\s*(?:you are|act as|new instructions)",
+        "(?i)\\bnew (?:system )?(?:instructions?|prompt)\\s*[:>]",
+        "(?i)(?:from now on|starting now),? you (?:are|will|must) (?:no longer |not )?(?:a |an )?",
+        "(?i)\\bdeveloper mode\\b.{0,40}\\benabled?\\b",
+        "(?i)\\bDAN\\b mode",
+        "(?i)do not (?:tell|inform|mention to) the (?:user|operator|human)"
+      ]
+    },
+    {
+      "name": "agent-capability-probe",
+      "doc": "Content that asks the reading agent to enumerate or exercise capabilities it holds on behalf of the operator. Reconnaissance, usually a precursor rather than the payload.",
+      "applies_to": ["source", "doc"],
+      "action_source": "reject",
+      "action_doc": "warn",
+      "patterns": [
+        "(?i)list (?:all )?(?:your |the )?(?:available )?(?:tools|functions|capabilities) (?:you )?(?:have|can)",
+        "(?i)(?:print|output|reveal|repeat|echo) (?:your |the )?(?:full |entire |complete )?(?:system )?prompt",
+        "(?i)what (?:are|were) your (?:original |initial )?instructions",
+        "(?i)(?:read|cat|open) (?:the )?(?:contents? of )?(?:~/)?\\.(?:ssh|aws|gnupg|kube)/",
+        "(?i)(?:print|dump|show) (?:all )?(?:environment|env) (?:variables|vars)\\b"
+      ]
+    },
+    {
+      "name": "credential-exfiltration-idiom",
+      "doc": "Instructions to move secret-shaped material somewhere it can be read from outside. Detected as an idiom, not as a secret: the secret itself is caught by the output gate, this catches the request to move one.",
+      "applies_to": ["source", "doc"],
+      "action_source": "reject",
+      "action_doc": "warn",
+      "patterns": [
+        "(?i)(?:send|post|upload|exfiltrate|transmit) (?:the |your |all )?(?:api[ _-]?key|token|credential|secret|password|private key)s?\\b.{0,40}\\b(?:to|at)\\b",
+        "(?i)curl\\s+[^\\n]{0,120}\\b(?:api[_-]?key|token|secret|password)=",
+        "(?i)base64\\s+(?:-w\\s*0\\s+)?(?:~/)?\\.(?:ssh|aws|gnupg)/",
+        "(?i)\\b(?:nc|ncat|netcat)\\b[^\\n]{0,40}\\b-e\\b",
+        "(?i)(?:add|append) (?:my |this |the following )?(?:public )?key to (?:~/)?\\.ssh/authorized_keys"
+      ]
+    },
+    {
+      "name": "remote-execution-idiom",
+      "doc": "Fetch-and-run in one step. There is no version of this that is safe in agent-reachable content, so it rejects in source and warns in prose where it is usually being quoted as an example of what not to do -- as it is here.",
+      "applies_to": ["source", "doc"],
+      "action_source": "reject",
+      "action_doc": "warn",
+      "patterns": [
+        "(?i)(?:curl|wget)\\s+[^\\n|]{1,200}\\|\\s*(?:sudo\\s+)?(?:ba)?sh\\b",
+        "(?i)(?:curl|wget)\\s+[^\\n|]{1,200}\\|\\s*(?:sudo\\s+)?(?:python3?|perl|ruby|node)\\b",
+        "(?i)\\biex\\s*\\(\\s*new-object\\s+net\\.webclient\\)",
+        "(?i)\\beval\\s*\\(\\s*(?:atob|base64_decode)\\s*\\("
+      ]
+    },
+    {
+      "name": "encoded-payload-marker",
+      "doc": "Long opaque blobs positioned where a human reader will skip them. Not malicious on its own -- test fixtures and embedded assets look identical -- so this warns everywhere and exists to make the operator look.",
+      "applies_to": ["source", "doc"],
+      "action_source": "warn",
+      "action_doc": "warn",
+      "patterns": [
+        "data:text/(?:html|javascript);base64,[A-Za-z0-9+/=]{200,}",
+        "(?:\\\\u[0-9a-fA-F]{4}){24,}",
+        "(?:\\\\x[0-9a-fA-F]{2}){48,}"
+      ]
+    },
+    {
+      "name": "sanitizer-evasion-reference",
+      "doc": "Content that describes getting past this kind of check. In a diff this is either documentation of the mechanism or an attempt on it, and the two are indistinguishable to a regex -- so it warns and hands the judgement to the reviewer's output-sanitize-drift discipline.",
+      "applies_to": ["source", "doc"],
+      "action_source": "warn",
+      "action_doc": "warn",
+      "patterns": [
+        "(?i)bypass(?:ing)? (?:the )?(?:sanitiz|filter|guard|scanner|content polic)",
+        "(?i)(?:evade|avoid|defeat) (?:the )?(?:detection|scanner|sanitizer|content filter)",
+        "(?i)CLAUDE_NO_SANITIZE|SDLC_NO_SANITIZE"
+      ]
+    }
+  ]
+}

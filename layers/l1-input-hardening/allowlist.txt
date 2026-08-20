@@ -1,0 +1,14 @@
+# L1 allowlist — paths the scanner skips entirely.
+#
+# One repository-relative path per line. A trailing '*' makes it a prefix.
+# Comments and blank lines are ignored.
+#
+# Use this for material that legitimately contains what the scanner looks for:
+# test fixtures carrying injection strings, documentation quoting an attack,
+# vendored third-party content you have reviewed once and pinned.
+#
+# Every entry here is a hole. The file is small on purpose, and a growing
+# allowlist is the signal that the pattern library needs tuning rather than
+# that the allowlist needs another line.
+
+layers/l1-input-hardening/tests/fixtures/*
