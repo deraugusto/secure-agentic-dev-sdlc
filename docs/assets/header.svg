@@ -64,6 +64,6 @@
 
   <text x="600" y="318" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#8b949e">every layer can refuse, independently — and ships the probe that proves it</text>
 
-  <text x="72" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6e7681">105 probes · stdlib only · no dependencies</text>
+  <text x="72" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6e7681">111 probes · stdlib only · no dependencies</text>
   <text x="1128" y="352" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#6e7681">Apache-2.0</text>
 </svg>
