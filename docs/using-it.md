@@ -332,6 +332,99 @@ Practical consequences:
 
 ---
 
+## What actually runs before code lands
+
+Two kinds of check, and the distinction matters: the deterministic ones give the
+same answer every time and can be reasoned about; the model-based one cannot,
+which is why its output is itself checked deterministically.
+
+### What "deterministic" means here
+
+Same input, same answer, every time — on your machine, on a colleague's, in six
+months, with the network unplugged. No model, no sampling temperature, no
+service that can be slow or down. A deterministic check either fires or it does
+not, and if it fires you can point at the line that made it fire.
+
+That property is what makes the rest of the pipeline arguable. You can disagree
+with one of these rules and change it; what you cannot get is a different answer
+from the same rule on the same code, which is precisely what makes a model
+unsuitable for the load-bearing checks.
+
+Mechanically it is five techniques, all boring on purpose:
+
+**Character-class membership.** Unicode codepoints compared against fixed sets:
+zero-width characters, bidi overrides, tag blocks, C0 controls. A codepoint is
+either in the set or it is not. The sets are built with `chr()` rather than
+written as literals — a literal zero-width character in the scanner's own source
+would make it reject itself on the next scan.
+
+**Script analysis.** For each identifier, the proportion of characters outside
+its dominant Unicode script. Any minority script marks the token; a Cyrillic
+`а` inside a Latin identifier renders identically and compares unequal, and
+counting scripts finds it without needing to know which substitution somebody
+chose.
+
+**Regular expressions over a library.** 29 patterns in 6 categories, in a JSON
+file you can read and edit. Each carries its own verdict, so widening one
+category does not weaken another. This is the tunable part: it finds what
+somebody described in advance, and nothing else.
+
+**Structural rules.** Shape rather than content — is the commit subject
+`<type>(<scope>): <summary>`, is the type in the allowed set, is the subject
+under 72 characters, is the second line blank, does the changed line count
+exceed the deletion threshold, does the pushed ref appear in the protected list.
+
+**Hash comparison.** The largest group, and the only one that gives a
+mathematical guarantee rather than a heuristic. Every seal in the system is
+sha256: the reviewer's apparatus files, the six stage manifests, the tripwire
+canaries, the GO token's fields, and each ledger entry over the previous entry's
+hash. A mismatch is not an opinion. It says the bytes changed, and it says which
+file.
+
+**Where this stops.** Deterministic means reliable, not complete. Every one of
+these checks finds only what someone described beforehand: a pattern nobody
+wrote, a rule nobody thought of, an attack in a shape nobody anticipated passes
+all 32 without a murmur. That blind spot is the entire reason a model sits in
+the middle of the pipeline — it can notice something nobody enumerated. And it
+is unreliable in exactly the way these checks are not, which is why it gets one
+vote and no veto over them.
+
+The two halves cover each other's weakness. Neither would be sufficient alone.
+
+### Deterministic — 32 checks
+
+| When | What | Count |
+|---|---|---|
+| `git commit` | commit-lint: subject shape, type, length, case, mood, body layout, trailer class | **11** |
+| `git pull` / before the agent starts | sanitize: 7 stages, of which 4 reject — invisible characters, bidi controls, homoglyphs, pattern scan | **4** |
+| the pattern scan, in detail | 29 patterns across 6 categories: instruction injection, capability probing, credential exfiltration idioms, remote-execution idioms, encoded payloads, sanitizer-evasion references | *(29)* |
+| `pipeline.py` · S1 | hard lint: address literal outside inventory, download piped into an interpreter, permissive permission bits, private key material, eval over assembled input, commit subject | **6** |
+| `pipeline.py` · S2 | the same 4 rejecting sanitize stages, re-run over the agent's **own output** | **4** |
+| `pipeline.py` · S3 | tripwire canaries intact | **1** |
+| `git push` · pre-push | GO token: decision is GO, bound to this commit, inside its TTL, seal unbroken | **4** |
+| on the server · pre-receive | deletion threshold, protected paths, protected files, protected refs | **4** |
+
+Two stages are counted twice on purpose. S2 re-runs the incoming scanner over
+outgoing content, because an agent that read untrusted material and then wrote
+code is exactly the case where the same four checks are worth repeating.
+
+### Model-based — 7 assessments
+
+Stage S4 sends the changeset to the reviewer once. The model assesses it against
+**seven disciplines**, one verdict each: output-sanitize drift, hardcoded
+secrets, shell injection, auth-logic change, privilege escalation, network
+egress, trust-boundary crossing.
+
+That answer is then checked deterministically before it counts — exactly seven
+entries with each slug once, a severity from a closed set, and any non-clear
+entry naming a file in the changeset and a line range inside it. A response that
+breaks the contract is retried once and then discarded as a model error, which
+the gate treats as a refusal rather than a pass.
+
+So the model gets one vote, and never the last word: it can raise a concern, and
+it can fail to answer usably — but it cannot wave anything through, because a
+GO also requires all 32 deterministic checks to have passed.
+
 ## 5 · When something refuses
 
 The refusals are the product. Reading them correctly is the difference between

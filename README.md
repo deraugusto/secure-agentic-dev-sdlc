@@ -346,6 +346,41 @@ to bypass on reflex.
 
 Details, guarantees and the negative probe for each: [docs/layers.md](docs/layers.md).
 
+## What runs before a commit lands
+
+**32 deterministic checks and 7 model assessments**, and the split is the point.
+
+The deterministic ones give the same answer every time: 11 in commit-lint, 4
+rejecting sanitize stages over incoming content (backed by 29 patterns in 6
+categories), 6 hard-lint rules, the same 4 sanitize stages re-run over the
+agent's *own output*, 1 tripwire check, 4 assertions on the GO token at push
+time, and 4 destructive-push triggers on the server.
+
+The model gets one call and seven verdicts — one per discipline. Its answer is
+then checked deterministically before it counts: exactly seven entries, a
+severity from a closed set, every non-clear finding naming a real file and a
+line range inside it. A broken contract is retried once, then treated as a
+refusal.
+
+So the model can raise a concern and it can fail to answer usably, but it cannot
+wave anything through: a GO needs all 32 deterministic checks to have passed as
+well.
+
+*Deterministic* here means same input, same answer, every time — no sampling, no
+service that can be down, and a line you can point at when something fires.
+Mechanically it is five techniques: character-class membership over fixed
+Unicode sets, script analysis for homoglyphs, regular expressions over an
+editable pattern library, structural rules on shape rather than content, and
+sha256 comparison for every seal in the system — apparatus files, stage
+manifests, canaries, the token's fields, and each ledger entry over the
+previous one's hash.
+
+And where it stops: these checks find only what somebody described in advance.
+An attack in a shape nobody anticipated passes all 32 without a murmur, which is
+exactly why a model sits in the middle — it can notice what nobody enumerated,
+and it is unreliable in precisely the way the other 32 are not. Full breakdown
+in [docs/using-it.md](docs/using-it.md#what-actually-runs-before-code-lands).
+
 ## Known limits
 
 - **The gate is enforced client-side.** `pre-push` lives in `.git/hooks`, and
